@@ -35,7 +35,7 @@ GENTEXI  = format codec
 GENTEXI := $(GENTEXI:%=doc/avoptions_%.texi)
 
 $(GENTEXI): TAG = GENTEXI
-$(GENTEXI): doc/avoptions_%.texi: doc/print_options$(HOSTEXESUF)
+$(GENTEXI): doc/avoptions_%.texi: doc/print_options
 	$(M)doc/print_options $* > $@
 
 doc/%.html: TAG = HTML

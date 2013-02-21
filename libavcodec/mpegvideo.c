@@ -1193,6 +1193,7 @@ int ff_MPV_frame_start(MpegEncContext *s, AVCodecContext *avctx)
         if (ff_alloc_picture(s, pic, 0) < 0)
             return -1;
 
+        //JB Note: s->current_picture_ptr is initialized here
         s->current_picture_ptr = pic;
         // FIXME use only the vars from current_pic
         s->current_picture_ptr->f.top_field_first = s->top_field_first;

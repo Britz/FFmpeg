@@ -30,20 +30,22 @@
 #include "parser.h"
 #include "h264data.h"
 #include "golomb.h"
+#include "h264_mvc.h"
 
 #include <assert.h>
 
 
 static int ff_h264_find_frame_end(H264Context *h, const uint8_t *buf, int buf_size)
 {
-    int i, j;
+    int i, j, extra_bytes;
     uint32_t state;
     ParseContext *pc = &(h->s.parse_context);
     int next_avc= h->is_avc ? 0 : buf_size;
 
-//printf("first %02X%02X%02X%02X\n", buf[0], buf[1],buf[2],buf[3]);
+//  printf("first %02X%02X%02X%02X\n", buf[0], buf[1],buf[2],buf[3]);
 //    mb_addr= pc->mb_addr - 1;
     state= pc->state;
+    extra_bytes = 0;
     if(state>13)
         state= 7;
 
@@ -89,12 +91,26 @@ static int ff_h264_find_frame_end(H264Context *h, const uint8_t *buf, int buf_si
             else            state>>=1; //2->1, 1->0, 0->0
         }else if(state<=5){
             int v= buf[i] & 0x1F;
-            if(v==6 || v==7 || v==8 || v==9){
+            // EDIT JB parser find frame end
+            //if(v==6 || v==7 || v==8 || v==9){
+            if(v==6 || v==7 || v==8 || v==9 || v==15 || v==14 ){
+            	if(v==14){
+					i+=3;
+					extra_bytes = 3;
+				}
+            // END EDIT
                 if(pc->frame_start_found){
                     i++;
                     goto found;
                 }
-            }else if(v==1 || v==2 || v==5){
+            // EDIT
+            //}else if(v==1 || v==2 || v==5){
+            }else if(v==1 || v==2 || v==3 || v==5 || v == 20 ){
+            	if(v==20){
+					i+=3;
+					extra_bytes = 3;
+            	}
+            	// END EDIT
                 state+=8;
                 continue;
             }
@@ -129,7 +145,7 @@ found:
     pc->frame_start_found= 0;
     if(h->is_avc)
         return next_avc;
-    return i-(state&5) - 3*(state>7);
+    return i-(state&5) - 3*(state>7)-extra_bytes;
 }
 
 /**
@@ -162,6 +178,13 @@ static inline int parse_nal_units(AVCodecParserContext *s,
     h->sei_cpb_removal_delay        = -1;
     h->sei_buffering_period_present =  0;
 
+    // EDIT for MVC support
+	// JB prefix NAL unit
+    // @author: Jochen Britz
+    h->prefix_nal_present = 0;
+
+    // END EDIT
+
     if (!buf_size)
         return 0;
 
@@ -192,10 +215,32 @@ static inline int parse_nal_units(AVCodecParserContext *s,
             if (src_length > 20)
                 src_length = 20;
             break;
+		// EDIT for MVC support
+		// JB  NAL_SUB_SPS, NAL_PREFIX and NAL_EXT_SLICE
+		// @author: Jochen Britz
+        case NAL_EXT_SLICE:
+        	if (src_length > 23){
+				src_length = 23;
+        	}
+			break;
+		// END EDIT
         }
+
         ptr= ff_h264_decode_nal(h, buf, &dst_length, &consumed, src_length);
         if (ptr==NULL || dst_length < 0)
             break;
+
+        // EDIT for MVC support
+		// JB prefix NAL unit
+		// @author: Jochen Britz
+        // av_log(h->s.avctx, AV_LOG_ERROR, "NAL unit type is %d.\n", h->nal_unit_type);
+
+        if(ff_h264_mvc_deploy_nal_header(h) < 0){
+        	  av_log(h->s.avctx, AV_LOG_ERROR, "Error while setting prefix NAL unit values.\n");
+        	 // return -1;
+        }
+
+        // END EDIT
 
         init_get_bits(&h->s.gb, ptr, 8*dst_length);
         switch(h->nal_unit_type) {
@@ -208,10 +253,41 @@ static inline int parse_nal_units(AVCodecParserContext *s,
         case NAL_SEI:
             ff_h264_decode_sei(h);
             break;
+
+		// EDIT for MVC support
+		// JB  NAL_SUB_SPS, NAL_PREFIX and NAL_EXT_SLICE
+		// @author: Jochen Britz
+		case NAL_SUB_SPS:
+			ff_h264_decode_sub_sps(h, h->s.gb.size_in_bits);
+			break;
+		case NAL_PREFIX:
+			ff_h264_decode_nal_prefix(h, src_length);
+			break;
+		case NAL_EXT_SLICE:
+			if (h->svc_extension_flag) {
+				/* specified in Annex G */
+				ff_h264_svc_decode_slice_header(h);
+				if (!h->slice_skip_flag) {
+					/* specified in Annex G */
+					//slice_data_in_scalable_extension();
+				}
+			} else {
+				//ff_h264_decode_slice_header(h);
+				//decode_slice(h);
+				//ff_h264_decode_slice_data(h);
+				goto nal_slice;
+			}
+			break;
+		// END EDIT
         case NAL_IDR_SLICE:
             s->key_frame = 1;
             /* fall through */
         case NAL_SLICE:
+	// EDIT for MVC support
+	// JB 7.3.2.13 Slice layer extension
+	// @author: Jochen Britz
+	nal_slice:
+	// END EDIT
             get_ue_golomb_long(&h->s.gb);  // skip first_mb_in_slice
             slice_type = get_ue_golomb_31(&h->s.gb);
             s->pict_type = golomb_to_pict_type[slice_type % 5];
@@ -219,7 +295,7 @@ static inline int parse_nal_units(AVCodecParserContext *s,
                 /* key frame, since recovery_frame_cnt is set */
                 s->key_frame = 1;
             }
-            pps_id= get_ue_golomb(&h->s.gb);
+            pps_id=get_ue_golomb(&h->s.gb);
             if(pps_id>=MAX_PPS_COUNT) {
                 av_log(h->s.avctx, AV_LOG_ERROR, "pps_id out of range\n");
                 return -1;
@@ -229,11 +305,28 @@ static inline int parse_nal_units(AVCodecParserContext *s,
                 return -1;
             }
             h->pps= *h->pps_buffers[pps_id];
-            if(!h->sps_buffers[h->pps.sps_id]) {
-                av_log(h->s.avctx, AV_LOG_ERROR, "non-existing SPS referenced\n");
-                return -1;
-            }
-            h->sps = *h->sps_buffers[h->pps.sps_id];
+            // EDIT for MVC support
+			// JB sub_sps_buffer
+			// @author: Jochen Britz
+			if(h->nal_unit_type == NAL_EXT_SLICE && h->sub_sps_buffers[h->pps.sps_id] != NULL){
+				if(!h->sub_sps_buffers[h->pps.sps_id]) {
+					av_log(h->s.avctx, AV_LOG_ERROR, "non-existing sub SPS referenced\n");
+					return -1;
+				}
+				h->sps = *h->sub_sps_buffers[h->pps.sps_id];
+			}else{
+				if(!h->sps_buffers[h->pps.sps_id]) {
+					av_log(h->s.avctx, AV_LOG_ERROR, "non-existing SPS referenced\n");
+					return -1;
+				}
+				h->sps = *h->sps_buffers[h->pps.sps_id];
+			}
+			// END EDIT
+            // if(!h->sps_buffers[h->pps.sps_id]) {
+			// 	  av_log(h->s.avctx, AV_LOG_ERROR, "non-existing SPS referenced\n");
+            //    return -1;
+            // }
+            //h->sps = *h->sps_buffers[h->pps.sps_id];
             h->frame_num = get_bits(&h->s.gb, h->sps.log2_max_frame_num);
 
             avctx->profile = ff_h264_get_profile(&h->sps);
@@ -242,11 +335,38 @@ static inline int parse_nal_units(AVCodecParserContext *s,
             if(h->sps.frame_mbs_only_flag){
                 h->s.picture_structure= PICT_FRAME;
             }else{
-                if(get_bits1(&h->s.gb)) { //field_pic_flag
-                    h->s.picture_structure= PICT_TOP_FIELD + get_bits1(&h->s.gb); //bottom_field_flag
-                } else {
-                    h->s.picture_structure= PICT_FRAME;
-                }
+                // JB field_pic_flag & bottom_field_flag parsing
+                // EDIT for MVC support
+                // @author: Jochen Britz
+				if (!h->sps.direct_8x8_inference_flag && slice_type == AV_PICTURE_TYPE_B) {
+					av_log(h->s.avctx, AV_LOG_ERROR, "This stream was generated by a broken encoder, invalid 8x8 inference\n");
+					return -1;
+				}
+				h->sps.field_pic_flag = get_bits1(&h->s.gb);
+				if (h->sps.field_pic_flag) { // field_pic_flag
+
+					// save field_pic_flag and bottom_field_flag for MVC processing
+					// and bit stream conformance check  (H.8.1)
+					h->sps.bottom_field_flag = get_bits1(&h->s.gb);
+					h->s.picture_structure= PICT_TOP_FIELD + h->sps.bottom_field_flag;
+					if(h->sps.bottom_field_flag){
+						// JB TODO TopFieldOrderCnt have to be constant for this access unit for MCV streams
+
+					}else{
+						// JB TODO BottomFieldOrderCnt have to be constant for this access unit for MCV streams
+
+					}
+				} else {
+					h->s.picture_structure= PICT_FRAME;
+				}
+
+            	// previous version
+//                if(get_bits1(&h->s.gb)) { //field_pic_flag
+//                    h->s.picture_structure= PICT_TOP_FIELD + get_bits1(&h->s.gb); //bottom_field_flag
+//                } else {
+//                    h->s.picture_structure= PICT_FRAME;
+//                }
+                // END EDIT
             }
 
             if(h->sps.pic_struct_present_flag) {

@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?fileVersion 4.0.0?><cproject storage_type_id="org.eclipse.cdt.core.XmlProjectDescriptionStorage">
+	<storageModule moduleId="org.eclipse.cdt.core.settings">
+		<cconfiguration id="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528">
+			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528" moduleId="org.eclipse.cdt.core.settings" name="Build (GNU)">
+				<externalSettings>
+					<externalSetting>
+						<entry flags="VALUE_WORKSPACE_PATH" kind="includePath" name="/ffmpeg"/>
+						<entry flags="VALUE_WORKSPACE_PATH" kind="libraryPath" name="/ffmpeg/Build (GNU)"/>
+						<entry flags="RESOLVED" kind="libraryFile" name="ffmpeg" srcPrefixMapping="" srcRootPath=""/>
+					</externalSetting>
+				</externalSettings>
+				<extensions>
+					<extension id="org.eclipse.cdt.core.GNU_ELF" point="org.eclipse.cdt.core.BinaryParser"/>
+					<extension id="org.eclipse.cdt.core.ELF" point="org.eclipse.cdt.core.BinaryParser"/>
+					<extension id="org.eclipse.cdt.core.GCCErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.autotools.core.ErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.GmakeErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.CWDLocator" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.GASErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.GLDErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.VCErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+				</extensions>
+			</storageModule>
+			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
+				<configuration artifactName="${ProjName}" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.sharedLib" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.sharedLib" description="" errorParsers="org.eclipse.cdt.core.GmakeErrorParser;org.eclipse.cdt.core.CWDLocator;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GASErrorParser;org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.autotools.core.ErrorParser;org.eclipse.cdt.core.VCErrorParser" id="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528" name="Build (GNU)" parent="org.eclipse.cdt.build.core.emptycfg">
+					<folderInfo id="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058" name="/" resourcePath="">
+						<toolChain id="cdt.managedbuild.toolchain.gnu.base.1641132166" name="Linux GCC" superClass="cdt.managedbuild.toolchain.gnu.base">
+							<targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.ELF;org.eclipse.cdt.core.GNU_ELF" id="cdt.managedbuild.target.gnu.platform.base.1807409968" name="Debug Platform" osList="linux,hpux,aix,qnx" superClass="cdt.managedbuild.target.gnu.platform.base"/>
+							<builder id="cdt.managedbuild.target.gnu.builder.base.212347831" keepEnvironmentInBuildfile="true" managedBuildOn="false" name="Gnu Make Builder" superClass="cdt.managedbuild.target.gnu.builder.base"/>
+							<tool id="cdt.managedbuild.tool.gnu.archiver.base.1187116750" name="GCC Archiver" superClass="cdt.managedbuild.tool.gnu.archiver.base"/>
+							<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.base.1170407507" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.base">
+								<inputType id="cdt.managedbuild.tool.gnu.cpp.compiler.input.2088599690" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.input"/>
+							</tool>
+							<tool id="cdt.managedbuild.tool.gnu.c.compiler.base.2081141121" name="GCC C Compiler" superClass="cdt.managedbuild.tool.gnu.c.compiler.base">
+								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.1053418410" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
+							</tool>
+							<tool id="cdt.managedbuild.tool.gnu.c.linker.base.1375331388" name="GCC C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.base">
+								<option defaultValue="true" id="gnu.c.link.option.shared.1018224820" name="Shared (-shared)" superClass="gnu.c.link.option.shared" valueType="boolean"/>
+							</tool>
+							<tool id="cdt.managedbuild.tool.gnu.cpp.linker.base.482360036" name="GCC C++ Linker" superClass="cdt.managedbuild.tool.gnu.cpp.linker.base">
+								<option defaultValue="true" id="gnu.cpp.link.option.shared.316649390" name="Shared (-shared)" superClass="gnu.cpp.link.option.shared" valueType="boolean"/>
+								<inputType id="cdt.managedbuild.tool.gnu.cpp.linker.input.1668846198" superClass="cdt.managedbuild.tool.gnu.cpp.linker.input">
+									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
+									<additionalInput kind="additionalinput" paths="$(LIBS)"/>
+								</inputType>
+							</tool>
+							<tool id="cdt.managedbuild.tool.gnu.assembler.base.410626964" name="GCC Assembler" superClass="cdt.managedbuild.tool.gnu.assembler.base">
+								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.1360334375" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
+							</tool>
+						</toolChain>
+					</folderInfo>
+				</configuration>
+			</storageModule>
+			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+		</cconfiguration>
+	</storageModule>
+	<storageModule moduleId="cdtBuildSystem" version="4.0.0">
+		<project id="ffmpeg.null.679584436" name="ffmpeg"/>
+	</storageModule>
+	<storageModule moduleId="refreshScope" versionNumber="2">
+		<configuration configurationName="Build (GNU)">
+			<resource resourceType="PROJECT" workspacePath="/ffmpeg"/>
+		</configuration>
+	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
+	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
+	<storageModule moduleId="scannerConfiguration">
+		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;cdt.managedbuild.tool.gnu.cpp.compiler.base.403204020;cdt.managedbuild.tool.gnu.cpp.compiler.input.858325207">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileCPP"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;org.eclipse.linuxtools.cdt.autotools.core.toolchain.tool.gcc.146737090;cdt.managedbuild.tool.gnu.c.compiler.input.1851377209">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileC"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;cdt.managedbuild.tool.gnu.cpp.compiler.base.378088315;cdt.managedbuild.tool.gnu.cpp.compiler.input.253093266">
+			<autodiscovery enabled="false" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.make.core.GCCStandardMakePerFileProfile"/>
+			<profile id="org.eclipse.cdt.make.core.GCCStandardMakePerFileProfile">
+				<buildOutputProvider>
+					<openAction enabled="true" filePath="/home/jochen/Dropbox/Masterarbeit/workspace/ffmpeg/g++"/>
+					<parser enabled="true"/>
+				</buildOutputProvider>
+				<scannerInfoProvider id="makefileGenerator">
+					<runAction arguments="-E -P -v -dD" command="" useDefault="true"/>
+					<parser enabled="true"/>
+				</scannerInfoProvider>
+			</profile>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;cdt.managedbuild.tool.gnu.c.compiler.base.517293404;cdt.managedbuild.tool.gnu.c.compiler.input.566043082">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;org.eclipse.linuxtools.cdt.autotools.core.toolchain.tool.gcc.589712038;cdt.managedbuild.tool.gnu.c.compiler.input.20777517">
+			<autodiscovery enabled="false" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileC"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.make.core.GCCStandardMakePerFileProfile"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;cdt.managedbuild.tool.gnu.c.compiler.base.1199601948;cdt.managedbuild.tool.gnu.c.compiler.input.1753086819">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;cdt.managedbuild.tool.gnu.cpp.compiler.base.1170407507;cdt.managedbuild.tool.gnu.cpp.compiler.input.2088599690">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileCPP"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;org.eclipse.linuxtools.cdt.autotools.core.toolchain.tool.gpp.516617932;cdt.managedbuild.tool.gnu.cpp.compiler.input.1032806454">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileCPP"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;cdt.managedbuild.tool.gnu.cpp.compiler.base.430693578;cdt.managedbuild.tool.gnu.cpp.compiler.input.1634239764">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileCPP"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;org.eclipse.linuxtools.cdt.autotools.core.toolchain.tool.gcc.1050699747;cdt.managedbuild.tool.gnu.c.compiler.input.1313240389">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileC"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;cdt.managedbuild.tool.gnu.cpp.compiler.base.1755887955;cdt.managedbuild.tool.gnu.cpp.compiler.input.66512064">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileCPP"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;cdt.managedbuild.tool.gnu.cross.cpp.compiler.1198980463;cdt.managedbuild.tool.gnu.cpp.compiler.input.853793839">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileCPP"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;org.eclipse.linuxtools.cdt.autotools.core.toolchain.tool.gpp.271056206;cdt.managedbuild.tool.gnu.cpp.compiler.input.1891871509">
+			<autodiscovery enabled="false" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileCPP"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;org.eclipse.linuxtools.cdt.autotools.core.toolchain.tool.gcc.1415714270;cdt.managedbuild.tool.gnu.c.compiler.input.383538894">
+			<autodiscovery enabled="false" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileC"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;org.eclipse.linuxtools.cdt.autotools.core.toolchain.tool.gpp.729161201;cdt.managedbuild.tool.gnu.cpp.compiler.input.1666492153">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileCPP"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;cdt.managedbuild.tool.gnu.c.compiler.base.989665031;cdt.managedbuild.tool.gnu.c.compiler.input.1588138084">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileC"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;org.eclipse.linuxtools.cdt.autotools.core.toolchain.tool.gcc.251926795;cdt.managedbuild.tool.gnu.c.compiler.input.176227366">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileC"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;org.eclipse.linuxtools.cdt.autotools.core.toolchain.tool.gpp.470186489;cdt.managedbuild.tool.gnu.cpp.compiler.input.674315237">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileCPP"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;org.eclipse.linuxtools.cdt.autotools.core.toolchain.tool.gpp.763105725;cdt.managedbuild.tool.gnu.cpp.compiler.input.340983363">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileCPP"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;cdt.managedbuild.tool.gnu.c.compiler.base.1440276925;cdt.managedbuild.tool.gnu.c.compiler.input.1642396350">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileC"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;cdt.managedbuild.tool.gnu.c.compiler.base.1426471856;cdt.managedbuild.tool.gnu.c.compiler.input.98764936">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;org.eclipse.linuxtools.cdt.autotools.core.toolchain.tool.gpp.1217065474;cdt.managedbuild.tool.gnu.cpp.compiler.input.1103861373">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileCPP"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;cdt.managedbuild.tool.gnu.c.compiler.base.828117488;cdt.managedbuild.tool.gnu.c.compiler.input.1820387336">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileC"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;cdt.managedbuild.tool.gnu.cpp.compiler.base.1787102694;cdt.managedbuild.tool.gnu.cpp.compiler.input.1722970687">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileCPP"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;cdt.managedbuild.tool.gnu.cpp.compiler.base.2069073170;cdt.managedbuild.tool.gnu.cpp.compiler.input.1745842308">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;cdt.managedbuild.tool.gnu.c.compiler.base.1902686761;cdt.managedbuild.tool.gnu.c.compiler.input.727510022">
+			<autodiscovery enabled="false" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.make.core.GCCStandardMakePerFileProfile"/>
+			<profile id="org.eclipse.cdt.make.core.GCCStandardMakePerFileProfile">
+				<buildOutputProvider>
+					<openAction enabled="true" filePath="/home/jochen/Dropbox/Masterarbeit/workspace/ffmpeg/gcc"/>
+					<parser enabled="true"/>
+				</buildOutputProvider>
+				<scannerInfoProvider id="makefileGenerator">
+					<runAction arguments="-E -P -v -dD" command="" useDefault="true"/>
+					<parser enabled="true"/>
+				</scannerInfoProvider>
+			</profile>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;cdt.managedbuild.tool.gnu.cpp.compiler.base.509801876;cdt.managedbuild.tool.gnu.cpp.compiler.input.437935791">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;cdt.managedbuild.tool.gnu.cpp.compiler.base.283804559;cdt.managedbuild.tool.gnu.cpp.compiler.input.1728601096">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;cdt.managedbuild.tool.gnu.c.compiler.base.2081141121;cdt.managedbuild.tool.gnu.c.compiler.input.1053418410">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileC"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;org.eclipse.linuxtools.cdt.autotools.core.toolchain.tool.gcc.979382543;cdt.managedbuild.tool.gnu.c.compiler.input.567568752">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileC"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;cdt.managedbuild.tool.gnu.cpp.compiler.base.1648450802;cdt.managedbuild.tool.gnu.cpp.compiler.input.2104544696">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileCPP"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;org.eclipse.linuxtools.cdt.autotools.core.toolchain.tool.gpp.116535734;cdt.managedbuild.tool.gnu.cpp.compiler.input.1729422886">
+			<autodiscovery enabled="false" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileCPP"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;cdt.managedbuild.tool.gnu.c.compiler.base.1201479667;cdt.managedbuild.tool.gnu.c.compiler.input.1096599810">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileC"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;cdt.managedbuild.tool.gnu.cross.c.compiler.1695142664;cdt.managedbuild.tool.gnu.c.compiler.input.150628696">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileC"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;cdt.managedbuild.tool.gnu.c.compiler.base.943463688;cdt.managedbuild.tool.gnu.c.compiler.input.163298398">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileC"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528;org.eclipse.linuxtools.cdt.autotools.core.toolChain.1307446528.1017793058;org.eclipse.linuxtools.cdt.autotools.core.toolchain.tool.gcc.167536846;cdt.managedbuild.tool.gnu.c.compiler.input.1552171372">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileC"/>
+		</scannerConfigBuildInfo>
+	</storageModule>
+</cproject>
