@@ -1419,6 +1419,7 @@ no_output_pic:
             copy_picture_attributes(s, &pic->f,
                                     &s->reordered_input_picture[0]->f);
 
+            //JB Note: s->current_picture_ptr is initialized here
             s->current_picture_ptr = pic;
         } else {
             // input is not a shared pix -> reuse buffer for current_pix

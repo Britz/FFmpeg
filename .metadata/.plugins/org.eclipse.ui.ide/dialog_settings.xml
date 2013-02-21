@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<section name="Workbench">
+	<list key="installedFeatures">
+		<item value="org.eclipse.cvs:1.3.100.dist-7B78FHl9exZ_"/>
+		<item value="org.eclipse.help:1.3.0.dist-7g7lFG9F858FGc7V7L9QGS1"/>
+		<item value="org.eclipse.help:1.4.0.v20120608-133537-8P7vFOTFK_Qj4JmDIQXL8Tn"/>
+		<item value="org.eclipse.platform:3.7.2.dist-9nF7UHagFqn9pElwWhC90gLz-soEuSGYmtSeiRH"/>
+		<item value="org.eclipse.platform:4.2.0.v20120608-135145-9JF7BHV8FyMteji0Oi_ePMz0xuZ8TVo7lV0z0ecb"/>
+		<item value="org.eclipse.rcp:3.7.2.dist-8R9GFpOFUdy-521934"/>
+		<item value="org.eclipse.rcp:4.2.0.v20120528-1648-7IAPA7BrHQicRpNdOz-Obz-rlRCA"/>
+	</list>
+</section>

@@ -119,6 +119,17 @@ static int dpb_add(DPB *dpb, Picture *pic)
     return 0;
 }
 
+// JB av_malloc_array
+// EDIT for MVC support
+// @author: Jochen Britz
+//static inline void *av_malloc_array(size_t nmemb, size_t size)
+//{
+//     if (size <= 0 || nmemb >= INT_MAX / size)
+//         return NULL;
+//     return av_malloc(nmemb * size);
+//}
+// END EDIT
+
 /** Fill in VA API reference frames array. */
 static int fill_vaapi_ReferenceFrames(VAPictureParameterBufferH264 *pic_param,
                                       H264Context                  *h)
@@ -127,6 +138,22 @@ static int fill_vaapi_ReferenceFrames(VAPictureParameterBufferH264 *pic_param,
     int i;
 
     dpb.size     = 0;
+
+    // TODO JB va-api DPB allocation
+    // EDIT for MVC support
+    // @author: Jochen Britz
+
+    // make dpb max size bigger
+    // free ReferenceFrames[16] and allocate ReferenceFrames[160]
+    // worst case = 10 times the number of frames
+
+
+    //  av_free(pic_param->ReferenceFrames);
+    //  pic_param->ReferenceFrames = (VAPictureH264) av_malloc(160*sizeof(VAPictureH264));
+
+    // END EDIT
+
+
     dpb.max_size = FF_ARRAY_ELEMS(pic_param->ReferenceFrames);
     dpb.va_pics  = pic_param->ReferenceFrames;
     for (i = 0; i < dpb.max_size; i++)

@@ -141,6 +141,12 @@ typedef struct Picture{
     int32_t *mb_cmp_score;      ///< Table for MB cmp scores, for mb decision FIXME remove
     int b_frame_score;          /* */
     struct MpegEncContext *owner2; ///< pointer to the MpegEncContext that allocated this picture
+
+    // JB View ID in Picture
+	// EDIT for MVC support
+	// @author: Jochen Britz
+	int view_id;				///< H264 MVC view identifier
+	//END EDIT
 } Picture;
 
 /**
@@ -704,6 +710,12 @@ typedef struct MpegEncContext {
 
     int mpv_flags;      ///< flags set by private options
     int quantizer_noise_shaping;
+
+    // EDIT for MVC support
+	// JB mvc DPB initialization flag
+	// @author: Jochen Britz
+    int mvc_initialized;
+    // END EDIT
 } MpegEncContext;
 
 #define REBASE_PICTURE(pic, new_ctx, old_ctx) (pic ? \

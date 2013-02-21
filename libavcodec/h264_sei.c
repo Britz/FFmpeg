@@ -137,11 +137,34 @@ static int decode_buffering_period(H264Context *h){
     SPS *sps;
 
     sps_id = get_ue_golomb_31(&s->gb);
-    if(sps_id > 31 || !h->sps_buffers[sps_id]) {
-        av_log(h->s.avctx, AV_LOG_ERROR, "non-existing SPS %d referenced in buffering period\n", sps_id);
-        return -1;
+
+    // EDIT for MVC support
+	// JB subset SPS buffer initialization for multi-threading
+    if(h->nal_unit_type == NAL_EXT_SLICE){
+		if(sps_id > 31 || !h->sub_sps_buffers[sps_id]) {
+			av_log(h->s.avctx, AV_LOG_ERROR, "non-existing subset SPS %d referenced in buffering period\n", sps_id);
+			// return -1;
+			// Try normal sps
+			if(sps_id > 31 || !h->sps_buffers[sps_id]) {
+				av_log(h->s.avctx, AV_LOG_ERROR, "non-existing SPS %d referenced in buffering period\n", sps_id);
+				return -1;
+			}
+			sps = h->sps_buffers[sps_id];
+		}
+		sps = h->sub_sps_buffers[sps_id];
+    }else{
+    	if(sps_id > 31 || !h->sps_buffers[sps_id]) {
+			av_log(h->s.avctx, AV_LOG_ERROR, "non-existing SPS %d referenced in buffering period\n", sps_id);
+			return -1;
+		}
+		sps = h->sps_buffers[sps_id];
     }
-    sps = h->sps_buffers[sps_id];
+	// END EDIT
+    // if(sps_id > 31 || !h->sps_buffers[sps_id]) {
+    //     av_log(h->s.avctx, AV_LOG_ERROR, "non-existing SPS %d referenced in buffering period\n", sps_id);
+    //     return -1;
+    // }
+    // sps = h->sps_buffers[sps_id];
 
     // NOTE: This is really so duplicated in the standard... See H.264, D.1.1
     if (sps->nal_hrd_parameters_present_flag) {
@@ -161,6 +184,8 @@ static int decode_buffering_period(H264Context *h){
     return 0;
 }
 
+
+// JB TODO MVC sei extension
 int ff_h264_decode_sei(H264Context *h){
     MpegEncContext * const s = &h->s;
 
