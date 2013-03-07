@@ -36,18 +36,12 @@ void extract_H264Context(const AVCodecContext *avctx, H264Context *h[MAX_VIEW_CO
 	int i;
 	h = avctx->priv_data;
 	for(i=0 ;i<MAX_VIEW_COUNT; i++){
-		init_H264Context(h[i], 0);
+		init_H264Context(h[i]);
 	}
 }
 
-void init_H264Context(H264Context *h, int view_id){
-	h->view_id = view_id;
-
-//	h->short_ref = &h->short_ref_mvc[view_id];
-//	h->long_ref = &h->long_ref_mvc[view_id];
-//	h->ref_count = &h->ref_count_mvc[view_id];
-//	h->ref_list = &h->ref_list_mvc[view_id];
-//	h->ref2frm = &h->ref2frm_mvc[view_id];
+void init_H264Context(H264Context *h){
+	// JB TODO all context schould share the same sps, pps and inter view references
 }
 
 /** 7.3.2.1.2 */
@@ -315,27 +309,27 @@ int ff_h264_decode_slice_header(H264Context *h) {
 		h->direct_spatial_mv_pred = get_bits1(&s->gb); /* direct_spatial_mv_pred_flag */
 
 		if (get_bits1(&s->gb)) { /* num_ref_idx_active_override_flag */
-			h->ref_count_mvc[h->view_id][0] = get_ue_golomb(&s->gb) + 1; /* num_ref_idx_l0_active_minus1 + 1 */
-			h->ref_count_mvc[h->view_id][1] = get_ue_golomb(&s->gb) + 1; /* num_ref_idx_l1_active_minus1 + 1 */
+			h->ref_count[0] = get_ue_golomb(&s->gb) + 1; /* num_ref_idx_l0_active_minus1 + 1 */
+			h->ref_count[1] = get_ue_golomb(&s->gb) + 1; /* num_ref_idx_l1_active_minus1 + 1 */
 		}
 	}else if(h->slice_type_nos == AV_PICTURE_TYPE_P){ /* slice_type == P || SP */
 		if (get_bits1(&s->gb)) { /* num_ref_idx_active_override_flag */
-					h->ref_count_mvc[h->view_id][0] = get_ue_golomb(&s->gb) + 1; /* num_ref_idx_l0_active_minus1 + 1 */
+					h->ref_count[0] = get_ue_golomb(&s->gb) + 1; /* num_ref_idx_l0_active_minus1 + 1 */
 		}
 
 	} else {
-		 h->ref_count_mvc[h->view_id][1] = h->ref_count_mvc[h->view_id][0] = h->list_count_mvc[h->view_id] = 0;
+		 h->ref_count[1] = h->ref_count[0] = h->list_count = 0;
 	}
 
 	if (h->nal_unit_type == NAL_EXT_SLICE) {
 		if (ff_h264_mvc_reorder_ref_pic_list(h, sps) < 0) {
-			h->ref_count_mvc[h->view_id][1] = h->ref_count_mvc[h->view_id][0] = 0;
+			h->ref_count[1] = h->ref_count[0] = 0;
 			av_log(s->avctx, AV_LOG_ERROR, "ff_h264_decode_mvc_ref_pic_list_reordering failed\n");
 			return -1;
 		}
 	} else {
 		if (ff_h264_decode_ref_pic_list_reordering(h) < 0) {
-			h->ref_count_mvc[h->view_id][1] = h->ref_count_mvc[h->view_id][0] = 0;
+			h->ref_count[1] = h->ref_count[0] = 0;
 			av_log(s->avctx, AV_LOG_ERROR, "ff_h264_decode_ref_pic_list_reordering failed\n");
 			return -1;
 		}
@@ -664,9 +658,9 @@ int ff_h264_svc_decode_slice_header(H264Context *h) {
 			|| h->slice_type == AV_PICTURE_TYPE_EB ) {
 			num_ref_idx_active_override = get_bits1(&s->gb);
 			if (num_ref_idx_active_override) {
-				h->ref_count_mvc[h->view_id][0] = get_ue_golomb(&s->gb) + 1;
+				h->ref_count[0] = get_ue_golomb(&s->gb) + 1;
 				if (h->slice_type == AV_PICTURE_TYPE_EB){
-					h->ref_count_mvc[h->view_id][1] = get_ue_golomb(&s->gb) + 1;
+					h->ref_count[1] = get_ue_golomb(&s->gb) + 1;
 				}
 
 			}
@@ -772,12 +766,12 @@ int ff_h264_decode_ref_base_pic_marking(H264Context *h){
     MpegEncContext * const s = &h->s;
     int i;
 
-    h->mmco_index_mvc[h->view_id]= 0;
+    h->mmco_index= 0;
 	if(get_bits1(&s->gb)){ // adaptive_ref_base_pic_marking_mode_flag
 		for(i= 0; i<MAX_MMCO_COUNT; i++) {
 			MMCOOpcode opcode = get_ue_golomb_31(&s->gb);
 
-			h->mmco_mvc[h->view_id][i].opcode= opcode;
+			h->mmco[i].opcode= opcode;
 			if(opcode==MMCO_SHORT2UNUSED){
 				h->difference_of_base_pic_nums_minus1 = get_ue_golomb(&s->gb);
 				// h->mmco[i].short_pic_num= (h->curr_pic_num - h->difference_of_base_pic_nums_minus1 - 1) & (h->max_pic_num - 1);
@@ -794,7 +788,7 @@ int ff_h264_decode_ref_base_pic_marking(H264Context *h){
 			if(opcode == MMCO_END)
 				break;
 		}
-		h->mmco_index_mvc[h->view_id]= i;
+		h->mmco_index= i;
 	}
     return 0;
 }
@@ -909,17 +903,17 @@ int ff_h264_mvc_reorder_ref_pic_list(H264Context *h, SPS* sps){
 	print_short_term(h);
 	print_long_term(h);
 
-	// av_log(h->s.avctx, AV_LOG_ERROR, "List count for view %d is %d.\n" , h->view_id, h->list_count_mvc[h->view_id]);
+	// av_log(h->s.avctx, AV_LOG_ERROR, "List count for view %d is %d.\n" , h->view_id, h->list_count);
 	// h->list_count is 1 for I,SI slices and 2 for B slices
-	for (list = 0; list < h->list_count_mvc[h->view_id]; list++) {
-		memcpy(h->ref_list_mvc[h->view_id][list], h->default_ref_list_mvc[h->view_id][list],
-				sizeof(Picture) * h->ref_count_mvc[h->view_id][list]);
+	for (list = 0; list < h->list_count; list++) {
+		memcpy(h->ref_list[list], h->default_ref_list[list],
+				sizeof(Picture) * h->ref_count[list]);
 		if(h->anchor_pic_flag){
 			int i, voidx;
-			int ref_count = h->ref_count_mvc[h->view_id][list];
+			int ref_count = h->ref_count[list];
 		//	av_log(h->s.avctx, AV_LOG_DEBUG,"reference count is %d\n", ref_count);
 			for(index = 0; index < ref_count; index++){
-				if (!h->ref_list_mvc[h->view_id][list][index].f.data[0]) {
+				if (!h->ref_list[list][index].f.data[0]) {
 					break;
 				}
 			}
@@ -929,7 +923,7 @@ int ff_h264_mvc_reorder_ref_pic_list(H264Context *h, SPS* sps){
 					break;
 				}
 				if(h->inter_ref_list[h->sps.anchor_ref[list][h->view_id][i]]){
-					h->ref_list_mvc[h->view_id][list][index++] = *h->inter_ref_list[h->sps.anchor_ref[list][h->view_id][i]];
+					h->ref_list[list][index++] = *h->inter_ref_list[h->sps.anchor_ref[list][h->view_id][i]];
 				}
 			}
 
@@ -950,7 +944,7 @@ int ff_h264_mvc_reorder_ref_pic_list(H264Context *h, SPS* sps){
 		        if(modification_of_pic_nums_idc==3)
 		            break;
 
-				if (index >= h->ref_count_mvc[h->view_id][list]) {
+				if (index >= h->ref_count[list]) {
 					av_log(h->s.avctx, AV_LOG_ERROR,"reference count overflow\n");
 					return -1;
 				}
@@ -984,8 +978,8 @@ int ff_h264_mvc_reorder_ref_pic_list(H264Context *h, SPS* sps){
 
 						frame_num = pic_num_extract(h, pred, &pic_structure);
 
-						for (i = h->short_ref_count_mvc[h->view_id] - 1; i >= 0; i--) {
-							ref = h->short_ref_mvc[h->view_id][i];
+						for (i = h->short_ref_count - 1; i >= 0; i--) {
+							ref = h->short_ref[i];
 							assert(ref->f.reference);
 							assert(!ref->long_ref);
 							if (ref->frame_num == frame_num
@@ -1007,7 +1001,7 @@ int ff_h264_mvc_reorder_ref_pic_list(H264Context *h, SPS* sps){
 									"long_term_pic_idx overflow\n");
 							return -1;
 						}
-						ref = h->long_ref_mvc[h->view_id][long_idx];
+						ref = h->long_ref[long_idx];
 						assert(!(ref && !ref->f.reference));
 						if (ref && (ref->f.reference & pic_structure)) {
 							ref->pic_id = pic_id;
@@ -1067,28 +1061,28 @@ int ff_h264_mvc_reorder_ref_pic_list(H264Context *h, SPS* sps){
 					if (i < 0) {
 						av_log(h->s.avctx, AV_LOG_ERROR,
 								"reference picture missing during reorder\n");
-						memset(&h->ref_list_mvc[h->view_id][list][index], 0, sizeof(Picture)); //FIXME
+						memset(&h->ref_list[list][index], 0, sizeof(Picture)); //FIXME
 					} else {
 						int nIdx = index+1;
 
-			 			for(i=index; i+1<h->ref_count_mvc[h->view_id][list]; i++){
-                            if(ref->long_ref == h->ref_list_mvc[h->view_id][list][i].long_ref && ref->pic_id == h->ref_list_mvc[h->view_id][list][i].pic_id)
+			 			for(i=index; i+1<h->ref_count[list]; i++){
+                            if(ref->long_ref == h->ref_list[list][i].long_ref && ref->pic_id == h->ref_list[list][i].pic_id)
                                 break;
                         }
 						//for(i = h->ref_count[list]; i > index; i--){ /* for( cIdx = num_ref_idx_lX_active_minus1 + 1; cIdx > refIdxLX; cIdx−− ) */
    						for(; i > index; i--){
-							h->ref_list_mvc[h->view_id][list][i]= h->ref_list_mvc[h->view_id][list][i-1];
+							h->ref_list[list][i]= h->ref_list[list][i-1];
 						}
    						//av_log(h->s.avctx, AV_LOG_DEBUG,"assign h->ref_list_mvc[view_id=%d][list=%d][index=%d] to reference {pic_id=%d, frame_num=%d, view_id=%d}\n",h->view_id,list,index, ref->pic_id, ref->frame_num, ref->view_id);
-   						h->ref_list_mvc[h->view_id][list][index] = *ref;
+   						h->ref_list[list][index] = *ref;
 						if (FIELD_PICTURE){
-							pic_as_field(&h->ref_list_mvc[h->view_id][list][index],pic_structure);
+							pic_as_field(&h->ref_list[list][index],pic_structure);
 						}
-						for( i = index+1; i <= h->ref_count_mvc[h->view_id][list]; i++ ){
-							if(	   ((h->ref_list_mvc[h->view_id][list][i].pic_id   != ref->pic_id) && (modification_type == 1 || modification_type == 3) )
-								|| (h->ref_list_mvc[h->view_id][list][i].view_id  != ref->pic_id && modification_type == 3)
-								|| (h->ref_list_mvc[h->view_id][list][i].long_ref != ref->long_ref  && modification_type == 2)){
-								h->ref_list_mvc[h->view_id][list][nIdx++] = h->ref_list_mvc[h->view_id][list][i];
+						for( i = index+1; i <= h->ref_count[list]; i++ ){
+							if(	   ((h->ref_list[list][i].pic_id   != ref->pic_id) && (modification_type == 1 || modification_type == 3) )
+								|| (h->ref_list[list][i].view_id  != ref->pic_id && modification_type == 3)
+								|| (h->ref_list[list][i].long_ref != ref->long_ref  && modification_type == 2)){
+								h->ref_list[list][nIdx++] = h->ref_list[list][i];
 							}
 						}
 
@@ -1124,12 +1118,12 @@ int ff_h264_mvc_reorder_ref_pic_list(H264Context *h, SPS* sps){
 		}
 	}
 
-    for(list=0; list<h->list_count_mvc[h->view_id]; list++){
-        for(index= 0; index < h->ref_count_mvc[h->view_id][list]; index++){
-            if (!h->ref_list_mvc[h->view_id][list][index].f.data[0]) {
+    for(list=0; list<h->list_count; list++){
+        for(index= 0; index < h->ref_count[list]; index++){
+            if (!h->ref_list[list][index].f.data[0]) {
                 av_log(h->s.avctx, AV_LOG_ERROR, "Missing reference picture (%d)\n", index);
-                if (h->default_ref_list_mvc[h->view_id][list][0].f.data[0]){
-                    h->ref_list_mvc[h->view_id][list][index]= h->default_ref_list_mvc[h->view_id][list][0];
+                if (h->default_ref_list[list][0].f.data[0]){
+                    h->ref_list[list][index]= h->default_ref_list[list][0];
                 }
                 else{
                     return -1;

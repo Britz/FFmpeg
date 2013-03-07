@@ -60,9 +60,9 @@ static void decode_mb(MpegEncContext *s, int ref)
          * differ between slices. We take the easy approach and ignore
          * it for now. If this turns out to have any relevance in
          * practice then correct remapping should be added. */
-        if (ref >= h->ref_count_mvc[h->view_id][0])
+        if (ref >= h->ref_count[0])
             ref = 0;
-        if (!h->ref_list_mvc[h->view_id][0][ref].f.data[0]) {
+        if (!h->ref_list[0][ref].f.data[0]) {
             av_log(s->avctx, AV_LOG_DEBUG, "Reference not available for error concealing\n");
             ref = 0;
         }
@@ -752,8 +752,8 @@ static int is_intra_more_likely(MpegEncContext *s)
 
     if (s->codec_id == CODEC_ID_H264) {
         H264Context *h = (void*) s;
-        if (h->list_count_mvc[h->view_id] <= 0 || h->ref_count_mvc[h->view_id][0] <= 0 ||
-            !h->ref_list_mvc[h->view_id][0][0].f.data[0])
+        if (h->list_count <= 0 || h->ref_count[0] <= 0 ||
+            !h->ref_list[0][0].f.data[0])
             return 1;
     }
 

@@ -490,13 +490,13 @@ typedef struct H264Context {
 	/**
 	 * num_ref_idx_l0/1_active_minus1 + 1
 	 */
-	unsigned int ref_count_mvc[MAX_VIEW_COUNT][2]; ///< counts frames or fields, depending on current mb mode
-	unsigned int list_count_mvc[MAX_VIEW_COUNT];
-	uint8_t *list_counts_mvc[MAX_VIEW_COUNT]; ///< Array of list_count per MB specifying the slice type
-	Picture ref_list_mvc[MAX_VIEW_COUNT][2][48]; /**< 0..15: frame refs, 16..47: mbaff field refs.
+	unsigned int ref_count[2]; ///< counts frames or fields, depending on current mb mode
+	unsigned int list_count;
+	uint8_t *list_counts; ///< Array of list_count per MB specifying the slice type
+	Picture ref_list[2][48]; /**< 0..15: frame refs, 16..47: mbaff field refs.
 	 *   Reordered version of default_ref_list
 	 *   according to picture reordering in slice header */
-	int ref2frm_mvc[MAX_VIEW_COUNT][MAX_SLICES][2][64]; ///< reference to frame number lists, used in the loop filter, the first 2 are for -2,-1
+	int ref2frm[MAX_SLICES][2][64]; ///< reference to frame number lists, used in the loop filter, the first 2 are for -2,-1
 
 
 	//unsigned int ref_count[2]; ///< counts frames or fields, depending on current mb mode
@@ -615,15 +615,15 @@ typedef struct H264Context {
 	int redundant_pic_count;
 
 	// EDIT JB multiple references list for multi view support
-	Picture *short_ref_mvc[MAX_VIEW_COUNT][32];
-	Picture *long_ref_mvc[MAX_VIEW_COUNT][32];
-	Picture default_ref_list_mvc[MAX_VIEW_COUNT][2][32]; ///< base reference list for all slices of a coded picture
-	Picture *delayed_pic_mvc[MAX_VIEW_COUNT][MAX_DELAYED_PIC_COUNT + 2]; // FIXME size?
+	Picture *short_ref[32];
+	Picture *long_ref[32];
+	Picture default_ref_list[2][32]; ///< base reference list for all slices of a coded picture
+	Picture *delayed_pic[MAX_DELAYED_PIC_COUNT + 2]; // FIXME size?
 
-	int last_pocs_mvc[MAX_VIEW_COUNT][MAX_DELAYED_PIC_COUNT];
-	Picture *next_output_pic_mvc[MAX_VIEW_COUNT];
-	int outputed_poc_mvc[MAX_VIEW_COUNT];
-	int next_outputed_poc_mvc[MAX_VIEW_COUNT];
+	int last_pocs[MAX_DELAYED_PIC_COUNT];
+	Picture *next_output_pic;
+	int outputed_poc;
+	int next_outputed_poc;
 
 	//Picture *short_ref[32];
 	//Picture *long_ref[32];
@@ -640,12 +640,12 @@ typedef struct H264Context {
 	/**
 	 * memory management control operations buffer.
 	 */
-	MMCO mmco_mvc[MAX_VIEW_COUNT][MAX_MMCO_COUNT];
-	int mmco_index_mvc[MAX_VIEW_COUNT];
-	int mmco_reset_mvc[MAX_VIEW_COUNT];
+	MMCO mmco[MAX_MMCO_COUNT];
+	int mmco_index;
+	int mmco_reset;
 
-	int long_ref_count_mvc[MAX_VIEW_COUNT];     ///< number of actual long term references
-	int short_ref_count_mvc[MAX_VIEW_COUNT];    ///< number of actual short term references
+	int long_ref_count;     ///< number of actual long term references
+	int short_ref_count;    ///< number of actual short term references
 
 
 	//MMCO mmco[MAX_MMCO_COUNT];

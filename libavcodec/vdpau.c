@@ -53,8 +53,8 @@ void ff_vdpau_h264_set_reference_frames(MpegEncContext *s)
 #define H264_RF_COUNT FF_ARRAY_ELEMS(render->info.h264.referenceFrames)
 
     for (list = 0; list < 2; ++list) {
-        Picture **lp = list ? h->long_ref_mvc[h->view_id] : h->short_ref_mvc[h->view_id];
-        int ls = list ? 16 : h->short_ref_count_mvc[h->view_id];
+        Picture **lp = list ? h->long_ref : h->short_ref;
+        int ls = list ? 16 : h->short_ref_count;
 
         for (i = 0; i < ls; ++i) {
             pic = lp[i];

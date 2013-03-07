@@ -604,7 +604,7 @@ static void fill_decode_caches(H264Context *h, int mb_type)
     if (IS_INTER(mb_type) || (IS_DIRECT(mb_type) && h->direct_spatial_mv_pred)) {
         int list;
         int b_stride = h->b_stride;
-        for (list = 0; list < h->list_count_mvc[h->view_id]; list++) {
+        for (list = 0; list < h->list_count; list++) {
             int8_t *ref_cache = &h->ref_cache[list][scan8[0]];
             int8_t *ref       = s->current_picture.f.ref_index[list];
             int16_t(*mv_cache)[2] = &h->mv_cache[list][scan8[0]];
