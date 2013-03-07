@@ -21,6 +21,7 @@
  */
 
 #include "h264.h"
+#include "h264_mvc.h"
 #include "vda_internal.h"
 
 static int start_frame(AVCodecContext *avctx,
@@ -63,7 +64,10 @@ static int decode_slice(AVCodecContext *avctx,
 
 static int end_frame(AVCodecContext *avctx)
 {
-    H264Context *h = avctx->priv_data;
+	// EDIT JB extract_H264Context
+	H264Context *h = extract_H264Context(avctx);
+	// H264Context *h = avctx->priv_data;
+	// END EDIT
     struct vda_context *vda_ctx = avctx->hwaccel_context;
     AVFrame *frame = &h->s.current_picture_ptr->f;
     int status;

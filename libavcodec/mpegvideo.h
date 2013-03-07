@@ -714,7 +714,8 @@ typedef struct MpegEncContext {
     // EDIT for MVC support
 	// JB mvc DPB initialization flag
 	// @author: Jochen Britz
-    int mvc_initialized;
+    int mvc_dbp_initialized;
+    int max_picture_count;
     // END EDIT
 } MpegEncContext;
 

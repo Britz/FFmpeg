@@ -128,37 +128,38 @@ int ff_h264_fill_default_ref_list(H264Context *h){
             cur_poc= s->current_picture_ptr->poc;
 
         for(list= 0; list<2; list++){
-            len= add_sorted(sorted    , h->short_ref, h->short_ref_count, cur_poc, 1^list);
-            len+=add_sorted(sorted+len, h->short_ref, h->short_ref_count, cur_poc, 0^list);
+            len= add_sorted(sorted    , h->short_ref_mvc[h->view_id], h->short_ref_count_mvc[h->view_id], cur_poc, 1^list);
+            len+=add_sorted(sorted+len, h->short_ref_mvc[h->view_id], h->short_ref_count_mvc[h->view_id], cur_poc, 0^list);
             assert(len<=32);
-            len= build_def_list(h->default_ref_list[list]    , sorted     , len, 0, s->picture_structure);
-            len+=build_def_list(h->default_ref_list[list]+len, h->long_ref, 16 , 1, s->picture_structure);
+            len= build_def_list(h->default_ref_list_mvc[h->view_id][list]    , sorted     , len, 0, s->picture_structure);
+            len+=build_def_list(h->default_ref_list_mvc[h->view_id][list]+len, h->long_ref_mvc[h->view_id], 16 , 1, s->picture_structure);
             assert(len<=32);
-
-            if(len < h->ref_count[list])
-                memset(&h->default_ref_list[list][len], 0, sizeof(Picture)*(h->ref_count[list] - len));
+            if(len < h->ref_count_mvc[h->view_id][list])
+                memset(&h->default_ref_list_mvc[h->view_id][list][len], 0, sizeof(Picture)*(h->ref_count_mvc[h->view_id][list] - len));
             lens[list]= len;
         }
 
         if(lens[0] == lens[1] && lens[1] > 1){
-            for (i = 0; h->default_ref_list[0][i].f.data[0] == h->default_ref_list[1][i].f.data[0] && i < lens[0]; i++);
+            for (i = 0; h->default_ref_list_mvc[h->view_id][0][i].f.data[0] == h->default_ref_list_mvc[h->view_id][1][i].f.data[0] && i < lens[0]; i++);
             if(i == lens[0])
-                FFSWAP(Picture, h->default_ref_list[1][0], h->default_ref_list[1][1]);
+                FFSWAP(Picture, h->default_ref_list_mvc[h->view_id][1][0], h->default_ref_list_mvc[h->view_id][1][1]);
         }
     }else{
-        len = build_def_list(h->default_ref_list[0]    , h->short_ref, h->short_ref_count, 0, s->picture_structure);
-        len+= build_def_list(h->default_ref_list[0]+len, h-> long_ref, 16                , 1, s->picture_structure);
+        len = build_def_list(h->default_ref_list_mvc[h->view_id][0]    , h->short_ref_mvc[h->view_id], h->short_ref_count_mvc[h->view_id], 0, s->picture_structure);
+        len+= build_def_list(h->default_ref_list_mvc[h->view_id][0]+len, h-> long_ref_mvc[h->view_id], 16                , 1, s->picture_structure);
         assert(len <= 32);
-        if(len < h->ref_count[0])
-            memset(&h->default_ref_list[0][len], 0, sizeof(Picture)*(h->ref_count[0] - len));
+        if(len < h->ref_count_mvc[h->view_id][0]){
+            memset(&h->default_ref_list_mvc[h->view_id][0][len], 0, sizeof(Picture)*(h->ref_count_mvc[h->view_id][0] - len));
+        }
     }
+
 #ifdef TRACE
-    for (i=0; i<h->ref_count[0]; i++) {
-        tprintf(h->s.avctx, "List0: %s fn:%d 0x%p\n", (h->default_ref_list[0][i].long_ref ? "LT" : "ST"), h->default_ref_list[0][i].pic_id, h->default_ref_list[0][i].data[0]);
+    for (i=0; i<h->ref_count_mvc[h->view_id][0]; i++) {
+        tprintf(h->s.avctx, "List0: %s fn:%d 0x%p\n", (h->default_ref_list_mvc[h->view_id][0][i].long_ref ? "LT" : "ST"), h->default_ref_list[0][i].pic_id, h->default_ref_list[0][i].data[0]);
     }
     if(h->slice_type_nos==AV_PICTURE_TYPE_B){
-        for (i=0; i<h->ref_count[1]; i++) {
-            tprintf(h->s.avctx, "List1: %s fn:%d 0x%p\n", (h->default_ref_list[1][i].long_ref ? "LT" : "ST"), h->default_ref_list[1][i].pic_id, h->default_ref_list[1][i].data[0]);
+        for (i=0; i<h->ref_count_mvc[h->view_id][1]; i++) {
+            tprintf(h->s.avctx, "List1: %s fn:%d 0x%p\n", (h->default_ref_list_mvc[h->view_id][1][i].long_ref ? "LT" : "ST"), h->default_ref_list[1][i].pic_id, h->default_ref_list[1][i].data[0]);
         }
     }
 #endif
@@ -199,8 +200,8 @@ int ff_h264_decode_ref_pic_list_reordering(H264Context *h){
 	    print_short_term(h);
 	    print_long_term(h);
 
-	    for(list=0; list<h->list_count; list++){
-	        memcpy(h->ref_list[list], h->default_ref_list[list], sizeof(Picture)*h->ref_count[list]);
+	    for(list=0; list<h->list_count_mvc[h->view_id]; list++){
+	        memcpy(h->ref_list_mvc[h->view_id][list], h->default_ref_list_mvc[h->view_id][list], sizeof(Picture)*h->ref_count_mvc[h->view_id][list]);
 
 	        if(get_bits1(&s->gb)){
 	            int pred= h->curr_pic_num;
@@ -214,7 +215,7 @@ int ff_h264_decode_ref_pic_list_reordering(H264Context *h){
 	                if(reordering_of_pic_nums_idc==3)
 	                    break;
 
-	                if(index >= h->ref_count[list]){
+	                if(index >= h->ref_count_mvc[h->view_id][list]){
 	                    av_log(h->s.avctx, AV_LOG_ERROR, "reference count overflow\n");
 	                    return -1;
 	                }
@@ -235,8 +236,8 @@ int ff_h264_decode_ref_pic_list_reordering(H264Context *h){
 
 	                        frame_num = pic_num_extract(h, pred, &pic_structure);
 
-	                        for(i= h->short_ref_count-1; i>=0; i--){
-	                            ref = h->short_ref[i];
+	                        for(i= h->short_ref_count_mvc[h->view_id]-1; i>=0; i--){
+	                            ref = h->short_ref_mvc[h->view_id][i];
 	                            assert(ref->f.reference);
 	                            assert(!ref->long_ref);
 	                            if(
@@ -257,7 +258,7 @@ int ff_h264_decode_ref_pic_list_reordering(H264Context *h){
 	                            av_log(h->s.avctx, AV_LOG_ERROR, "long_term_pic_idx overflow\n");
 	                            return -1;
 	                        }
-	                        ref = h->long_ref[long_idx];
+	                        ref = h->long_ref_mvc[h->view_id][long_idx];
 	                        assert(!(ref && !ref->f.reference));
 	                        if (ref && (ref->f.reference & pic_structure)) {
 	                            ref->pic_id= pic_id;
@@ -270,18 +271,18 @@ int ff_h264_decode_ref_pic_list_reordering(H264Context *h){
 
 	                    if (i < 0) {
 	                        av_log(h->s.avctx, AV_LOG_ERROR, "reference picture missing during reorder\n");
-	                        memset(&h->ref_list[list][index], 0, sizeof(Picture)); //FIXME
+	                        memset(&h->ref_list_mvc[h->view_id][list][index], 0, sizeof(Picture)); //FIXME
 	                    } else {
-	                        for(i=index; i+1<h->ref_count[list]; i++){
-	                            if(ref->long_ref == h->ref_list[list][i].long_ref && ref->pic_id == h->ref_list[list][i].pic_id)
+	                        for(i=index; i+1<h->ref_count_mvc[h->view_id][list]; i++){
+	                            if(ref->long_ref == h->ref_list_mvc[h->view_id][list][i].long_ref && ref->pic_id == h->ref_list_mvc[h->view_id][list][i].pic_id)
 	                                break;
 	                        }
 	                        for(; i > index; i--){
-	                            h->ref_list[list][i]= h->ref_list[list][i-1];
+	                            h->ref_list_mvc[h->view_id][list][i]= h->ref_list_mvc[h->view_id][list][i-1];
 	                        }
-	                        h->ref_list[list][index]= *ref;
+	                        h->ref_list_mvc[h->view_id][list][index]= *ref;
 	                        if (FIELD_PICTURE){
-	                            pic_as_field(&h->ref_list[list][index], pic_structure);
+	                            pic_as_field(&h->ref_list_mvc[h->view_id][list][index], pic_structure);
 	                        }
 	                    }
 	                }else{
@@ -291,12 +292,12 @@ int ff_h264_decode_ref_pic_list_reordering(H264Context *h){
 	            }
 	        }
 	    }
-	    for(list=0; list<h->list_count; list++){
-	        for(index= 0; index < h->ref_count[list]; index++){
-	            if (!h->ref_list[list][index].f.data[0]) {
-	                av_log(h->s.avctx, AV_LOG_ERROR, "Missing reference picture, default is %d\n", h->default_ref_list[list][0].poc);
-	                if (h->default_ref_list[list][0].f.data[0])
-	                    h->ref_list[list][index]= h->default_ref_list[list][0];
+	    for(list=0; list<h->list_count_mvc[h->view_id]; list++){
+	        for(index= 0; index < h->ref_count_mvc[h->view_id][list]; index++){
+	            if (!h->ref_list_mvc[h->view_id][list][index].f.data[0]) {
+	                av_log(h->s.avctx, AV_LOG_ERROR, "Missing reference picture, default is %d\n", h->default_ref_list_mvc[h->view_id][list][0].poc);
+	                if (h->default_ref_list_mvc[h->view_id][list][0].f.data[0])
+	                    h->ref_list_mvc[h->view_id][list][index]= h->default_ref_list_mvc[h->view_id][list][0];
 	                else
 	                   return -1;
 	            }
@@ -313,10 +314,10 @@ int ff_h264_decode_ref_pic_list_reordering(H264Context *h){
 
 void ff_h264_fill_mbaff_ref_list(H264Context *h){
     int list, i, j;
-    for(list=0; list<h->list_count; list++){
-        for(i=0; i<h->ref_count[list]; i++){
-            Picture *frame = &h->ref_list[list][i];
-            Picture *field = &h->ref_list[list][16+2*i];
+    for(list=0; list<h->list_count_mvc[h->view_id]; list++){
+        for(i=0; i<h->ref_count_mvc[h->view_id][list]; i++){
+            Picture *frame = &h->ref_list_mvc[h->view_id][list][i];
+            Picture *field = &h->ref_list_mvc[h->view_id][list][16+2*i];
             field[0] = *frame;
             for(j=0; j<3; j++)
                 field[0].f.linesize[j] <<= 1;
@@ -354,8 +355,8 @@ static inline int unreference_pic(H264Context *h, Picture *pic, int refmask){
     if (pic->f.reference &= refmask) {
         return 0;
     } else {
-        for(i = 0; h->delayed_pic[i]; i++)
-            if(pic == h->delayed_pic[i]){
+        for(i = 0; h->delayed_pic_mvc[h->view_id][i]; i++)
+            if(pic == h->delayed_pic_mvc[h->view_id][i]){
                 pic->f.reference = DELAYED_PIC_REF;
                 break;
             }
@@ -375,8 +376,8 @@ static Picture * find_short(H264Context *h, int frame_num, int *idx){
     MpegEncContext * const s = &h->s;
     int i;
 
-    for(i=0; i<h->short_ref_count; i++){
-        Picture *pic= h->short_ref[i];
+    for(i=0; i<h->short_ref_count_mvc[h->view_id]; i++){
+        Picture *pic= h->short_ref_mvc[h->view_id][i];
         if(s->avctx->debug&FF_DEBUG_MMCO)
             av_log(h->s.avctx, AV_LOG_DEBUG, "%d %d %p\n", i, pic->frame_num, pic);
         if(pic->frame_num == frame_num) {
@@ -394,10 +395,10 @@ static Picture * find_short(H264Context *h, int frame_num, int *idx){
  * @param i index into h->short_ref of picture to remove.
  */
 static void remove_short_at_index(H264Context *h, int i){
-    assert(i >= 0 && i < h->short_ref_count);
-    h->short_ref[i]= NULL;
-    if (--h->short_ref_count)
-        memmove(&h->short_ref[i], &h->short_ref[i+1], (h->short_ref_count - i)*sizeof(Picture*));
+    assert(i >= 0 && i < h->short_ref_count_mvc[h->view_id]);
+    h->short_ref_mvc[h->view_id][i]= NULL;
+    if (--h->short_ref_count_mvc[h->view_id])
+        memmove(&h->short_ref_mvc[h->view_id][i], &h->short_ref_mvc[h->view_id][i+1], (h->short_ref_count_mvc[h->view_id] - i)*sizeof(Picture*));
 }
 
 /**
@@ -410,7 +411,7 @@ static Picture * remove_short(H264Context *h, int frame_num, int ref_mask){
     int i;
 
     if(s->avctx->debug&FF_DEBUG_MMCO)
-        av_log(h->s.avctx, AV_LOG_DEBUG, "remove short %d count %d\n", frame_num, h->short_ref_count);
+        av_log(h->s.avctx, AV_LOG_DEBUG, "remove short %d count %d\n", frame_num, h->short_ref_count_mvc[h->view_id]);
 
     pic = find_short(h, frame_num, &i);
     if (pic){
@@ -426,16 +427,16 @@ static Picture * remove_short(H264Context *h, int frame_num, int ref_mask){
  * that list.
  * @return the removed picture or NULL if an error occurs
  */
-static Picture * remove_long(H264Context *h, int i, int ref_mask){
+static Picture * remove_long(H264Context *h, int view_id, int i, int ref_mask){
     Picture *pic;
 
-    pic= h->long_ref[i];
+    pic= h->long_ref_mvc[h->view_id][i];
     if (pic){
         if(unreference_pic(h, pic, ref_mask)){
-            assert(h->long_ref[i]->long_ref == 1);
-            h->long_ref[i]->long_ref= 0;
-            h->long_ref[i]= NULL;
-            h->long_ref_count--;
+            assert(h->long_ref_mvc[h->view_id][i]->long_ref == 1);
+            h->long_ref_mvc[h->view_id][i]->long_ref= 0;
+            h->long_ref_mvc[h->view_id][i]= NULL;
+            h->long_ref_count_mvc[h->view_id]--;
         }
     }
 
@@ -443,18 +444,21 @@ static Picture * remove_long(H264Context *h, int i, int ref_mask){
 }
 
 void ff_h264_remove_all_refs(H264Context *h){
-    int i;
+    int i,j;
 
-    for(i=0; i<16; i++){
-        remove_long(h, i, 0);
-    }
-    assert(h->long_ref_count==0);
+    for(i=0; i<MAX_VIEW_COUNT; i++){
+    	for(j=0; j<16; j++){
+    		remove_long(h, i, j, 0);
+    	}
 
-    for(i=0; i<h->short_ref_count; i++){
-        unreference_pic(h, h->short_ref[i], 0);
-        h->short_ref[i]= NULL;
+		assert(h->long_ref_count_mvc[i]==0);
+
+		for(j=0; j<h->short_ref_count_mvc[i]; j++){
+			unreference_pic(h, h->short_ref_mvc[i][j], 0);
+			h->short_ref_mvc[i][j]= NULL;
+		}
+		h->short_ref_count_mvc[i]=0;
     }
-    h->short_ref_count=0;
 }
 
 /**
@@ -464,8 +468,8 @@ static void print_short_term(H264Context *h) {
     uint32_t i;
     if(h->s.avctx->debug&FF_DEBUG_MMCO) {
         av_log(h->s.avctx, AV_LOG_DEBUG, "short term list:\n");
-        for(i=0; i<h->short_ref_count; i++){
-            Picture *pic= h->short_ref[i];
+        for(i=0; i<h->short_ref_count_mvc[h->view_id]; i++){
+            Picture *pic= h->short_ref_mvc[h->view_id][i];
             av_log(h->s.avctx, AV_LOG_DEBUG, "%d fn:%d poc:%d %p\n",
                    i, pic->frame_num, pic->poc, pic->f.data[0]);
         }
@@ -480,7 +484,7 @@ static void print_long_term(H264Context *h) {
     if(h->s.avctx->debug&FF_DEBUG_MMCO) {
         av_log(h->s.avctx, AV_LOG_DEBUG, "long term list:\n");
         for(i = 0; i < 16; i++){
-            Picture *pic= h->long_ref[i];
+            Picture *pic= h->long_ref_mvc[h->view_id][i];
             if (pic) {
                 av_log(h->s.avctx, AV_LOG_DEBUG, "%d fn:%d poc:%d %p\n",
                        i, pic->frame_num, pic->poc, pic->f.data[0]);
@@ -492,17 +496,17 @@ static void print_long_term(H264Context *h) {
 void ff_generate_sliding_window_mmcos(H264Context *h) {
     MpegEncContext * const s = &h->s;
 
-    h->mmco_index= 0;
-    if(h->short_ref_count && h->long_ref_count + h->short_ref_count >= h->sps.ref_frame_count &&
+    h->mmco_index_mvc[h->view_id]= 0;
+    if(h->short_ref_count_mvc[h->view_id] && h->long_ref_count_mvc[h->view_id] + h->short_ref_count_mvc[h->view_id] >= h->sps.ref_frame_count &&
             !(FIELD_PICTURE && !s->first_field && s->current_picture_ptr->f.reference)) {
-        h->mmco[0].opcode= MMCO_SHORT2UNUSED;
-        h->mmco[0].short_pic_num= h->short_ref[ h->short_ref_count - 1 ]->frame_num;
-        h->mmco_index= 1;
+        h->mmco_mvc[h->view_id][0].opcode= MMCO_SHORT2UNUSED;
+        h->mmco_mvc[h->view_id][0].short_pic_num= h->short_ref_mvc[h->view_id][ h->short_ref_count_mvc[h->view_id] - 1 ]->frame_num;
+        h->mmco_index_mvc[h->view_id]= 1;
         if (FIELD_PICTURE) {
-            h->mmco[0].short_pic_num *= 2;
-            h->mmco[1].opcode= MMCO_SHORT2UNUSED;
-            h->mmco[1].short_pic_num= h->mmco[0].short_pic_num + 1;
-            h->mmco_index= 2;
+            h->mmco_mvc[h->view_id][0].short_pic_num *= 2;
+            h->mmco_mvc[h->view_id][1].opcode= MMCO_SHORT2UNUSED;
+            h->mmco_mvc[h->view_id][1].short_pic_num= h->mmco_mvc[h->view_id][0].short_pic_num + 1;
+            h->mmco_index_mvc[h->view_id]= 2;
         }
     }
 }
@@ -519,15 +523,15 @@ int ff_h264_execute_ref_pic_marking(H264Context *h, MMCO *mmco, int mmco_count){
     for(i=0; i<mmco_count; i++){
         int av_uninit(structure), av_uninit(frame_num);
         if(s->avctx->debug&FF_DEBUG_MMCO)
-            av_log(h->s.avctx, AV_LOG_DEBUG, "mmco:%d %d %d\n", h->mmco[i].opcode, h->mmco[i].short_pic_num, h->mmco[i].long_arg);
+            av_log(h->s.avctx, AV_LOG_DEBUG, "mmco:%d %d %d\n", h->mmco_mvc[h->view_id][i].opcode, h->mmco_mvc[h->view_id][i].short_pic_num, h->mmco_mvc[h->view_id][i].long_arg);
 
         if(   mmco[i].opcode == MMCO_SHORT2UNUSED
            || mmco[i].opcode == MMCO_SHORT2LONG){
             frame_num = pic_num_extract(h, mmco[i].short_pic_num, &structure);
             pic = find_short(h, frame_num, &j);
             if(!pic){
-                if(mmco[i].opcode != MMCO_SHORT2LONG || !h->long_ref[mmco[i].long_arg]
-                   || h->long_ref[mmco[i].long_arg]->frame_num != frame_num) {
+                if(mmco[i].opcode != MMCO_SHORT2LONG || !h->long_ref_mvc[h->view_id][mmco[i].long_arg]
+                   || h->long_ref_mvc[h->view_id][mmco[i].long_arg]->frame_num != frame_num) {
                     av_log(h->s.avctx, AV_LOG_ERROR, "mmco: unref short failure\n");
                     err = AVERROR_INVALIDDATA;
                 }
@@ -538,25 +542,25 @@ int ff_h264_execute_ref_pic_marking(H264Context *h, MMCO *mmco, int mmco_count){
         switch(mmco[i].opcode){
         case MMCO_SHORT2UNUSED:
             if(s->avctx->debug&FF_DEBUG_MMCO)
-                av_log(h->s.avctx, AV_LOG_DEBUG, "mmco: unref short %d count %d\n", h->mmco[i].short_pic_num, h->short_ref_count);
+                av_log(h->s.avctx, AV_LOG_DEBUG, "mmco: unref short %d count %d\n", h->mmco_mvc[h->view_id][i].short_pic_num, h->short_ref_count_mvc[h->view_id]);
             remove_short(h, frame_num, structure ^ PICT_FRAME);
             break;
         case MMCO_SHORT2LONG:
-                if (h->long_ref[mmco[i].long_arg] != pic)
-                    remove_long(h, mmco[i].long_arg, 0);
+                if (h->long_ref_mvc[h->view_id][mmco[i].long_arg] != pic)
+                    remove_long(h, h->view_id, mmco[i].long_arg, 0);
 
                 remove_short_at_index(h, j);
-                h->long_ref[ mmco[i].long_arg ]= pic;
-                if (h->long_ref[ mmco[i].long_arg ]){
-                    h->long_ref[ mmco[i].long_arg ]->long_ref=1;
-                    h->long_ref_count++;
+                h->long_ref_mvc[h->view_id][ mmco[i].long_arg ]= pic;
+                if (h->long_ref_mvc[h->view_id][ mmco[i].long_arg ]){
+                    h->long_ref_mvc[h->view_id][ mmco[i].long_arg ]->long_ref=1;
+                    h->long_ref_count_mvc[h->view_id]++;
                 }
             break;
         case MMCO_LONG2UNUSED:
             j = pic_num_extract(h, mmco[i].long_arg, &structure);
-            pic = h->long_ref[j];
+            pic = h->long_ref_mvc[h->view_id][j];
             if (pic) {
-                remove_long(h, j, structure ^ PICT_FRAME);
+                remove_long(h, h->view_id, j, structure ^ PICT_FRAME);
             } else if(s->avctx->debug&FF_DEBUG_MMCO)
                 av_log(h->s.avctx, AV_LOG_DEBUG, "mmco: unref long failure\n");
             break;
@@ -569,12 +573,12 @@ int ff_h264_execute_ref_pic_marking(H264Context *h, MMCO *mmco, int mmco_count){
                      * and mark this field valid.
                      */
 
-            if (h->long_ref[mmco[i].long_arg] != s->current_picture_ptr) {
-                remove_long(h, mmco[i].long_arg, 0);
+            if (h->long_ref_mvc[h->view_id][mmco[i].long_arg] != s->current_picture_ptr) {
+                remove_long(h, h->view_id, mmco[i].long_arg, 0);
 
-                h->long_ref[ mmco[i].long_arg ]= s->current_picture_ptr;
-                h->long_ref[ mmco[i].long_arg ]->long_ref=1;
-                h->long_ref_count++;
+                h->long_ref_mvc[h->view_id][ mmco[i].long_arg ]= s->current_picture_ptr;
+                h->long_ref_mvc[h->view_id][ mmco[i].long_arg ]->long_ref=1;
+                h->long_ref_count_mvc[h->view_id]++;
             }
 
             s->current_picture_ptr->f.reference |= s->picture_structure;
@@ -584,24 +588,24 @@ int ff_h264_execute_ref_pic_marking(H264Context *h, MMCO *mmco, int mmco_count){
             assert(mmco[i].long_arg <= 16);
             // just remove the long term which index is greater than new max
             for(j = mmco[i].long_arg; j<16; j++){
-                remove_long(h, j, 0);
+                remove_long(h, h->view_id, j, 0);
             }
             break;
         case MMCO_RESET:
-            while(h->short_ref_count){
-                remove_short(h, h->short_ref[0]->frame_num, 0);
+            while(h->short_ref_count_mvc[h->view_id]){
+                remove_short(h, h->short_ref_mvc[h->view_id][0]->frame_num, 0);
             }
             for(j = 0; j < 16; j++) {
-                remove_long(h, j, 0);
+                remove_long(h, h->view_id, j, 0);
             }
             h->frame_num=
             s->current_picture_ptr->frame_num= 0;
-            h->mmco_reset = 1;
+            h->mmco_reset_mvc[h->view_id] = 1;
             s->current_picture_ptr->mmco_reset=1;
             for (j = 0; j < MAX_DELAYED_PIC_COUNT; j++)
-                h->last_pocs[j] = INT_MIN;
+                h->last_pocs_mvc[h->view_id][j] = INT_MIN;
             break;
-        default: assert(0);
+        default: assert(0); break;
         }
     }
 
@@ -612,7 +616,7 @@ int ff_h264_execute_ref_pic_marking(H264Context *h, MMCO *mmco, int mmco_count){
          * in long_ref; trying to put it on the short list here is an
          * error in the encoded bit stream (ref: 7.4.3.3, NOTE 2 and 3).
          */
-        if (h->short_ref_count && h->short_ref[0] == s->current_picture_ptr) {
+        if (h->short_ref_count_mvc[h->view_id] && h->short_ref_mvc[h->view_id][0] == s->current_picture_ptr) {
             /* Just mark the second field valid */
             s->current_picture_ptr->f.reference = PICT_FRAME;
         } else if (s->current_picture_ptr->long_ref) {
@@ -622,15 +626,20 @@ int ff_h264_execute_ref_pic_marking(H264Context *h, MMCO *mmco, int mmco_count){
                                              "(first field is long term)\n");
             err = AVERROR_INVALIDDATA;
         // EDIT JB
-        } else if(h->nal_unit_type == NAL_EXT_SLICE) {
-			if(h->short_ref_count)
-				memmove(&h->short_ref[1], &h->short_ref[0], h->short_ref_count*sizeof(Picture*));
-
-			//JB Note: short ref are set here!
-			h->short_ref[0]= s->current_picture_ptr;
-			h->short_ref_count++;
-			s->current_picture_ptr->f.reference |= s->picture_structure;
-        // END EDIT
+//        } else if(h->nal_unit_type == NAL_EXT_SLICE) {
+//			if(h->short_ref_count_mvc[h->view_id])
+//				memmove(&h->short_ref_mvc[h->view_id][1], &h->short_ref_mvc[h->view_id][0], h->short_ref_count_mvc[h->view_id]*sizeof(Picture*));
+//
+//			//JB Note: short ref are set here!
+//
+//			h->short_ref_mvc[h->view_id][0]= s->current_picture_ptr;
+//			if(h->inter_view_flag){
+//				s->current_picture_ptr->view_id = h->view_id;
+//				h->inter_ref_list[h->view_id] = s->current_picture_ptr;
+//			}
+//			h->short_ref_count_mvc[h->view_id]++;
+//			s->current_picture_ptr->f.reference |= s->picture_structure;
+//        // END EDIT
         } else {
             pic= remove_short(h, s->current_picture_ptr->frame_num, 0);
             if(pic){
@@ -638,17 +647,23 @@ int ff_h264_execute_ref_pic_marking(H264Context *h, MMCO *mmco, int mmco_count){
                 err = AVERROR_INVALIDDATA;
             }
 
-            if(h->short_ref_count)
-                memmove(&h->short_ref[1], &h->short_ref[0], h->short_ref_count*sizeof(Picture*));
+            if(h->short_ref_count_mvc[h->view_id])
+                memmove(&h->short_ref_mvc[h->view_id][1], &h->short_ref_mvc[h->view_id][0], h->short_ref_count_mvc[h->view_id]*sizeof(Picture*));
 
             //JB Note: short ref are set here!
-            h->short_ref[0]= s->current_picture_ptr;
-            h->short_ref_count++;
+            h->short_ref_mvc[h->view_id][0] = s->current_picture_ptr;
+            // EDIT JB:
+            if(h->inter_view_flag){
+            	s->current_picture_ptr->view_id = h->view_id;
+            	h->inter_ref_list[h->view_id] = s->current_picture_ptr;
+            	s->current_picture_ptr->f.reference |= INTER_PIC_REF;
+            }
+            h->short_ref_count_mvc[h->view_id]++;
             s->current_picture_ptr->f.reference |= s->picture_structure;
         }
     }
 
-    if (h->long_ref_count + h->short_ref_count > FFMAX(h->sps.ref_frame_count, 1)){
+    if (h->long_ref_count_mvc[h->view_id] + h->short_ref_count_mvc[h->view_id] > FFMAX(h->sps.ref_frame_count, 1)){
 
         /* We have too many reference frames, probably due to corrupted
          * stream. Need to discard one frame. Prevents overrun of the
@@ -657,18 +672,18 @@ int ff_h264_execute_ref_pic_marking(H264Context *h, MMCO *mmco, int mmco_count){
         av_log(h->s.avctx, AV_LOG_ERROR,
                "number of reference frames (%d+%d) exceeds max (%d; probably "
                "corrupt input), discarding one\n",
-               h->long_ref_count, h->short_ref_count, h->sps.ref_frame_count);
+               h->long_ref_count_mvc[h->view_id], h->short_ref_count_mvc[h->view_id], h->sps.ref_frame_count);
         err = AVERROR_INVALIDDATA;
 
-        if (h->long_ref_count && !h->short_ref_count) {
+        if (h->long_ref_count_mvc[h->view_id] && !h->short_ref_count_mvc[h->view_id]) {
             for (i = 0; i < 16; ++i)
-                if (h->long_ref[i])
+                if (h->long_ref_mvc[h->view_id][i])
                     break;
 
             assert(i < 16);
-            remove_long(h, i, 0);
+            remove_long(h, h->view_id, i, 0);
         } else {
-            pic = h->short_ref[h->short_ref_count - 1];
+            pic = h->short_ref_mvc[h->view_id][h->short_ref_count_mvc[h->view_id] - 1];
             remove_short(h, pic->frame_num, 0);
         }
     }
@@ -676,7 +691,7 @@ int ff_h264_execute_ref_pic_marking(H264Context *h, MMCO *mmco, int mmco_count){
     print_short_term(h);
     print_long_term(h);
 
-    if(err >= 0 && h->long_ref_count==0 && h->short_ref_count<=2 && h->pps.ref_count[0]<=1 + (s->picture_structure != PICT_FRAME) && s->current_picture_ptr->f.pict_type == AV_PICTURE_TYPE_I){
+    if(err >= 0 && h->long_ref_count_mvc[h->view_id]==0 && h->short_ref_count_mvc[h->view_id]<=2 && h->pps.ref_count[0]<=1 + (s->picture_structure != PICT_FRAME) && s->current_picture_ptr->f.pict_type == AV_PICTURE_TYPE_I){
         s->current_picture_ptr->sync |= 1;
         if(!h->s.avctx->has_b_frames)
             h->sync = 2;
@@ -689,23 +704,23 @@ int ff_h264_decode_ref_pic_marking(H264Context *h, GetBitContext *gb){
     MpegEncContext * const s = &h->s;
     int i;
 
-    h->mmco_index= 0;
+    h->mmco_index_mvc[h->view_id]= 0;
     if(h->nal_unit_type == NAL_IDR_SLICE){ //FIXME fields
         s->broken_link = get_bits1(gb) -1;
         if(get_bits1(gb)){
-            h->mmco[0].opcode= MMCO_LONG;
-            h->mmco[0].long_arg= 0;
-            h->mmco_index= 1;
+            h->mmco_mvc[h->view_id][0].opcode= MMCO_LONG;
+            h->mmco_mvc[h->view_id][0].long_arg= 0;
+            h->mmco_index_mvc[h->view_id]= 1;
         }
     }else{
         if(get_bits1(gb)){ // adaptive_ref_pic_marking_mode_flag
             for(i= 0; i<MAX_MMCO_COUNT; i++) {
                 MMCOOpcode opcode = get_ue_golomb_31(gb);
 
-                h->mmco[i].opcode= opcode;
+                h->mmco_mvc[h->view_id][i].opcode= opcode;
                 if(opcode == MMCO_SHORT2UNUSED || opcode == MMCO_SHORT2LONG){
                 	/* difference_of_pic_nums_minus1 */
-                    h->mmco[i].short_pic_num = (h->curr_pic_num - get_ue_golomb(gb) - 1) & (h->max_pic_num - 1);
+                    h->mmco_mvc[h->view_id][i].short_pic_num = (h->curr_pic_num - get_ue_golomb(gb) - 1) & (h->max_pic_num - 1);
 /*                    if(h->mmco[i].short_pic_num >= h->short_ref_count || h->short_ref[ h->mmco[i].short_pic_num ] == NULL){
                         av_log(s->avctx, AV_LOG_ERROR, "illegal short ref in memory management control operation %d\n", mmco);
                         return -1;
@@ -717,7 +732,7 @@ int ff_h264_decode_ref_pic_marking(H264Context *h, GetBitContext *gb){
                         av_log(h->s.avctx, AV_LOG_ERROR, "illegal long ref in memory management control operation %d\n", opcode);
                         return -1;
                     }
-                    h->mmco[i].long_arg= long_arg;
+                    h->mmco_mvc[h->view_id][i].long_arg= long_arg;
                 }
 
                 if(opcode > (unsigned)MMCO_LONG){
@@ -727,7 +742,7 @@ int ff_h264_decode_ref_pic_marking(H264Context *h, GetBitContext *gb){
                 if(opcode == MMCO_END)
                     break;
             }
-            h->mmco_index= i;
+            h->mmco_index_mvc[h->view_id]= i;
         }else{
             ff_generate_sliding_window_mmcos(h);
         }

@@ -727,6 +727,9 @@ static int cavs_decode_frame(AVCodecContext * avctx,void *data, int *data_size,
             break;
         }
     }
+
+    return 0;
+
 }
 
 AVCodec ff_cavs_decoder = {

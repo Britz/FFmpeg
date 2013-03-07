@@ -53,8 +53,8 @@ void ff_vdpau_h264_set_reference_frames(MpegEncContext *s)
 #define H264_RF_COUNT FF_ARRAY_ELEMS(render->info.h264.referenceFrames)
 
     for (list = 0; list < 2; ++list) {
-        Picture **lp = list ? h->long_ref : h->short_ref;
-        int ls = list ? 16 : h->short_ref_count;
+        Picture **lp = list ? h->long_ref_mvc[h->view_id] : h->short_ref_mvc[h->view_id];
+        int ls = list ? 16 : h->short_ref_count_mvc[h->view_id];
 
         for (i = 0; i < ls; ++i) {
             pic = lp[i];
@@ -236,6 +236,7 @@ void ff_vdpau_mpeg_picture_complete(MpegEncContext *s, const uint8_t *buf,
         if (!last) // FIXME: Does this test make sense?
             last = render; // predict second field from the first
         render->info.mpeg.forward_reference      = last->surface;
+        break;
     }
 
     ff_vdpau_add_data_chunk(s, buf, buf_size);
@@ -306,6 +307,7 @@ void ff_vdpau_vc1_decode_picture(MpegEncContext *s, const uint8_t *buf,
         if (!last) // FIXME: Does this test make sense?
             last = render; // predict second field from the first
         render->info.vc1.forward_reference = last->surface;
+        break;
     }
 
     ff_vdpau_add_data_chunk(s, buf, buf_size);
@@ -362,6 +364,7 @@ void ff_vdpau_mpeg4_decode_picture(MpegEncContext *s, const uint8_t *buf,
         last = (struct vdpau_render_state *)s->last_picture.f.data[0];
         assert(last);
         render->info.mpeg4.forward_reference      = last->surface;
+        break;
     }
 
     ff_vdpau_add_data_chunk(s, buf, buf_size);

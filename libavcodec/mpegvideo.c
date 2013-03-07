@@ -542,8 +542,8 @@ int ff_mpeg_update_thread_context(AVCodecContext *dst,
         s->bitstream_buffer_size = s->allocated_bitstream_buffer_size = 0;
 
         if (s1->context_initialized){
-            s->picture_range_start  += MAX_PICTURE_COUNT;
-            s->picture_range_end    += MAX_PICTURE_COUNT;
+        	s->picture_range_start  += FFMAX(MAX_PICTURE_COUNT, s->max_picture_count);
+            s->picture_range_end    += FFMAX(MAX_PICTURE_COUNT, s->max_picture_count);
             ff_MPV_common_init(s);
         }
     }
@@ -637,7 +637,7 @@ void ff_MPV_common_defaults(MpegEncContext *s)
     s->b_code                = 1;
 
     s->picture_range_start   = 0;
-    s->picture_range_end     = MAX_PICTURE_COUNT;
+    s->picture_range_end     = FFMAX(MAX_PICTURE_COUNT, s->max_picture_count);
 
     s->slice_context_count   = 1;
 }
@@ -777,7 +777,7 @@ av_cold int ff_MPV_common_init(MpegEncContext *s)
         }
     }
 
-    s->picture_count = MAX_PICTURE_COUNT * FFMAX(1, s->avctx->thread_count);
+    s->picture_count = FFMAX(MAX_PICTURE_COUNT, s->max_picture_count) * FFMAX(1, s->avctx->thread_count);
     FF_ALLOCZ_OR_GOTO(s->avctx, s->picture,
                       s->picture_count * sizeof(Picture), fail);
     for (i = 0; i < s->picture_count; i++) {
@@ -1054,7 +1054,8 @@ void ff_release_unused_pictures(MpegEncContext*s, int remove_current)
 
     /* release non reference frames */
     for (i = 0; i < s->picture_count; i++) {
-        if (s->picture[i].f.data[0] && !s->picture[i].f.reference &&
+        if (s->picture[i].f.data[0] &&
+        	!s->picture[i].f.reference &&
             (!s->picture[i].owner2 || s->picture[i].owner2 == s) &&
             (remove_current || &s->picture[i] !=  s->current_picture_ptr)
             /* && s->picture[i].type!= FF_BUFFER_TYPE_SHARED */) {

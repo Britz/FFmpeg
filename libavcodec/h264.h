@@ -107,6 +107,9 @@
  * is held for delayed output.
  */
 #define DELAYED_PIC_REF 4
+// EDIT JB reference value for inter view references
+ #define INTER_PIC_REF 8
+// END EDIT
 
 #define QP_MAX_NUM (51 + 4*6)           // The maximum supported qp
 /* NAL unit types */
@@ -267,27 +270,28 @@ typedef struct SPS {
 
 	// just for better handling
 	u_int8_t is_sub_sps;
+	int id;
 
 	// Sequence parameter set MVC extension (Annex H.7.3.3.1.1)
 	int num_views_minus1; // range 0..1023
 	int num_level_values_signalled_minus1; // range 0..63
 
 	// FIXME dyn aloc
-	int num_anchor_refs_lX[2][1024]; // dim [ num_views_minus1+1 ]
-	int num_non_anchor_refs_lX[2][1024];  // dim [ num_views_minus1+1 ]
+	int num_anchor_refs[2][MAX_VIEW_COUNT]; // dim [ num_views_minus1+1 ]
+	int num_non_anchor_refs_lX[2][MAX_VIEW_COUNT];  // dim [ num_views_minus1+1 ]
 
-	int anchor_ref_lX[2][1024][16]; // dim [ num_views_minus1+1 ][ min(num_views_minus1, 15)+1 ]
-	int non_anchor_ref_lX[2][1024][16]; // dim [ num_views_minus1+1 ][ min(num_views_minus1, 15)+1 ]
+	int anchor_ref[2][MAX_VIEW_COUNT][16]; // dim [ num_views_minus1+1 ][ min(num_views_minus1, 15)+1 ]
+	int non_anchor_ref_lX[2][MAX_VIEW_COUNT][16]; // dim [ num_views_minus1+1 ][ min(num_views_minus1, 15)+1 ]
 
-	int view_id[1024]; // dim [ num_views_minus1+1 ]
+	int view_id[MAX_VIEW_COUNT]; // dim [ num_views_minus1+1 ]
 
-	int level_idc_array[64]; //dim [ num_level_values_signalled_minus1+1 ]
-	int num_applicable_ops_minus1[64]; //dim [ num_level_values_signalled_minus1+1 ], range 0..1023
-	int applicable_op_temporal_id[64][1024]; //dim [ num_level_values_signalled_minus1+1 ][num_applicable_ops_minus1[i]+1]
-	int applicable_op_num_target_views_minus1[64][1024]; //dim [ num_level_values_signalled_minus1+1 ][num_applicable_ops_minus1[i]+1], range 0..1023
+	//int level_idc_array[64]; //dim [ num_level_values_signalled_minus1+1 ]
+	//int num_applicable_ops_minus1[64]; //dim [ num_level_values_signalled_minus1+1 ], range 0..1023
+	//int applicable_op_temporal_id[64][1024]; //dim [ num_level_values_signalled_minus1+1 ][num_applicable_ops_minus1[i]+1]
+	//int applicable_op_num_target_views_minus1[64][1024]; //dim [ num_level_values_signalled_minus1+1 ][num_applicable_ops_minus1[i]+1], range 0..1023
 
-	int applicable_op_target_view_id[64][1024][1024]; //dim [num_level_values_signalled_minus1 + 1][num_applicable_ops_minus1[i] + 1][applicable_op_num_target_views_minus1[i][j]]
-	int applicable_op_num_views_minus1[64][1024]; //dim [num_level_values_signalled_minus1 + 1][num_applicable_ops_minus1[i] + 1], range
+	//int applicable_op_target_view_id[64][1024][1024]; //dim [num_level_values_signalled_minus1 + 1][num_applicable_ops_minus1[i] + 1][applicable_op_num_target_views_minus1[i][j]]
+	//int applicable_op_num_views_minus1[64][1024]; //dim [num_level_values_signalled_minus1 + 1][num_applicable_ops_minus1[i] + 1], range
 
 	// mvc vui parameter extension
 	int vui_mvc_num_ops_minus1;
@@ -481,16 +485,29 @@ typedef struct H264Context {
 	int map_col_to_list0[2][16 + 32];
 	int map_col_to_list0_field[2][2][16 + 32];
 
+	// EDIT JB multiple reference lists for mvc support
+
 	/**
 	 * num_ref_idx_l0/1_active_minus1 + 1
 	 */
-	unsigned int ref_count[2]; ///< counts frames or fields, depending on current mb mode
-	unsigned int list_count;
-	uint8_t *list_counts; ///< Array of list_count per MB specifying the slice type
-	Picture ref_list[2][48]; /**< 0..15: frame refs, 16..47: mbaff field refs.
+	unsigned int ref_count_mvc[MAX_VIEW_COUNT][2]; ///< counts frames or fields, depending on current mb mode
+	unsigned int list_count_mvc[MAX_VIEW_COUNT];
+	uint8_t *list_counts_mvc[MAX_VIEW_COUNT]; ///< Array of list_count per MB specifying the slice type
+	Picture ref_list_mvc[MAX_VIEW_COUNT][2][48]; /**< 0..15: frame refs, 16..47: mbaff field refs.
 	 *   Reordered version of default_ref_list
 	 *   according to picture reordering in slice header */
-	int ref2frm[MAX_SLICES][2][64]; ///< reference to frame number lists, used in the loop filter, the first 2 are for -2,-1
+	int ref2frm_mvc[MAX_VIEW_COUNT][MAX_SLICES][2][64]; ///< reference to frame number lists, used in the loop filter, the first 2 are for -2,-1
+
+
+	//unsigned int ref_count[2]; ///< counts frames or fields, depending on current mb mode
+	//unsigned int list_count;
+	//uint8_t *list_counts; ///< Array of list_count per MB specifying the slice type
+	//Picture ref_list[2][48]; /**< 0..15: frame refs, 16..47: mbaff field refs.
+	// *   Reordered version of default_ref_list
+	// *   according to picture reordering in slice header */
+	//int ref2frm[MAX_SLICES][2][64]; ///< reference to frame number lists, used in the loop filter, the first 2 are for -2,-1
+	//  END EDIT
+
 
 	// data partitioning
 	GetBitContext intra_gb;
@@ -566,7 +583,6 @@ typedef struct H264Context {
 	// JB sub_sps_buffer
 	// @author: Jochen Britz
 	SPS *sub_sps_buffers[MAX_SPS_COUNT]; /* Buffer for the subset sequence parameter sets used for non base views */
-
 	// END EDIT
 
 
@@ -598,24 +614,46 @@ typedef struct H264Context {
 
 	int redundant_pic_count;
 
-	Picture *short_ref[32];
-	Picture *long_ref[32];
-	Picture default_ref_list[2][32]; ///< base reference list for all slices of a coded picture
-	Picture *delayed_pic[MAX_DELAYED_PIC_COUNT + 2]; // FIXME size?
-	int last_pocs[MAX_DELAYED_PIC_COUNT];
-	Picture *next_output_pic;
-	int outputed_poc;
-	int next_outputed_poc;
+	// EDIT JB multiple references list for multi view support
+	Picture *short_ref_mvc[MAX_VIEW_COUNT][32];
+	Picture *long_ref_mvc[MAX_VIEW_COUNT][32];
+	Picture default_ref_list_mvc[MAX_VIEW_COUNT][2][32]; ///< base reference list for all slices of a coded picture
+	Picture *delayed_pic_mvc[MAX_VIEW_COUNT][MAX_DELAYED_PIC_COUNT + 2]; // FIXME size?
+
+	int last_pocs_mvc[MAX_VIEW_COUNT][MAX_DELAYED_PIC_COUNT];
+	Picture *next_output_pic_mvc[MAX_VIEW_COUNT];
+	int outputed_poc_mvc[MAX_VIEW_COUNT];
+	int next_outputed_poc_mvc[MAX_VIEW_COUNT];
+
+	//Picture *short_ref[32];
+	//Picture *long_ref[32];
+	//Picture default_ref_list[2][32]; ///< base reference list for all slices of a coded picture
+	//Picture *delayed_pic[MAX_DELAYED_PIC_COUNT + 2]; // FIXME size?
+
+
+	//int last_pocs[MAX_DELAYED_PIC_COUNT];
+	//Picture *next_output_pic;
+	//int outputed_poc;
+	//int next_outputed_poc;
+
 
 	/**
 	 * memory management control operations buffer.
 	 */
-	MMCO mmco[MAX_MMCO_COUNT];
-	int mmco_index;
-	int mmco_reset;
+	MMCO mmco_mvc[MAX_VIEW_COUNT][MAX_MMCO_COUNT];
+	int mmco_index_mvc[MAX_VIEW_COUNT];
+	int mmco_reset_mvc[MAX_VIEW_COUNT];
 
-	int long_ref_count;     ///< number of actual long term references
-	int short_ref_count;    ///< number of actual short term references
+	int long_ref_count_mvc[MAX_VIEW_COUNT];     ///< number of actual long term references
+	int short_ref_count_mvc[MAX_VIEW_COUNT];    ///< number of actual short term references
+
+
+	//MMCO mmco[MAX_MMCO_COUNT];
+	//int mmco_index;
+	//int mmco_reset;
+	//int long_ref_count;     ///< number of actual long term references
+	//int short_ref_count;    ///< number of actual short term references
+	// END EDIT
 
 	int cabac_init_idc;
 
@@ -716,7 +754,9 @@ typedef struct H264Context {
 
 	// just for easier handling of mvc
 	u_int8_t is_mvc;
+	int base_view_id;
 	u_int16_t *view_count;
+	Picture* inter_ref_list[MAX_VIEW_COUNT];
 
 	// Slice header
 	int idr_pic_id;
@@ -756,7 +796,6 @@ typedef struct H264Context {
 	uint8_t non_idr_flag;
 	uint8_t non_idr_present;
 
-	struct H264Context **mvc_context;
 	// END EDIT
 
 } H264Context;

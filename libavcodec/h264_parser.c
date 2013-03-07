@@ -92,24 +92,24 @@ static int ff_h264_find_frame_end(H264Context *h, const uint8_t *buf, int buf_si
         }else if(state<=5){
             int v= buf[i] & 0x1F;
             // EDIT JB parser find frame end
-            //if(v==6 || v==7 || v==8 || v==9){
-            if(v==6 || v==7 || v==8 || v==9 || v==15 || v==14 ){
-            	if(v==14){
-					i+=3;
-					extra_bytes = 3;
-				}
+            if(v==6 || v==7 || v==8 || v==9){
+//            if(v==6 || v==7 || v==8 || v==9 || v==15 || v==14 ){
+//            	if(v==14){
+//					i+=3;
+//					extra_bytes = 3;
+//				}
             // END EDIT
                 if(pc->frame_start_found){
                     i++;
                     goto found;
                 }
             // EDIT
-            //}else if(v==1 || v==2 || v==5){
-            }else if(v==1 || v==2 || v==3 || v==5 || v == 20 ){
-            	if(v==20){
-					i+=3;
-					extra_bytes = 3;
-            	}
+            }else if(v==1 || v==2 || v==5){
+//            }else if(v==1 || v==2 || v==3 || v==5 || v == 20 ){
+//            	if(v==20){
+//					i+=3;
+//					extra_bytes = 3;
+//            	}
             	// END EDIT
                 state+=8;
                 continue;

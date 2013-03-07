@@ -1,4 +1,2 @@
 #!/bin/bash
- 
-./configure --enable-gpl --enable-version3 --enable-x11grab --disable-stripping --enable-debug=3 --disable-optimizations --disable-asm
-
+./configure --enable-gpl --enable-version3 --disable-random --enable-extra-warnings --enable-x11grab --enable-debug=3 --disable-optimizations --disable-asm --disable-hwaccels

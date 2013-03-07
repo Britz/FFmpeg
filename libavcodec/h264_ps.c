@@ -311,6 +311,7 @@ int ff_h264_decode_seq_parameter_set(H264Context *h) {
 	if (sps == NULL )
 		return -1;
 
+	sps->id = sps_id;
 	sps->time_offset_length = 24;
 	sps->profile_idc = profile_idc;
 	sps->constraint_set_flags = constraint_set_flags;

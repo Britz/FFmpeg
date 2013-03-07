@@ -2010,8 +2010,8 @@ decode_intra_mb:
     }
 
     if(MB_MBAFF){
-        h->ref_count[0] <<= 1;
-        h->ref_count[1] <<= 1;
+        h->ref_count_mvc[h->view_id][0] <<= 1;
+        h->ref_count_mvc[h->view_id][1] <<= 1;
     }
 
     fill_decode_caches(h, mb_type);
@@ -2077,14 +2077,14 @@ decode_intra_mb:
             }
         }
 
-        for( list = 0; list < h->list_count; list++ ) {
+        for( list = 0; list < h->list_count_mvc[h->view_id]; list++ ) {
                 for( i = 0; i < 4; i++ ) {
                     if(IS_DIRECT(h->sub_mb_type[i])) continue;
                     if(IS_DIR(h->sub_mb_type[i], 0, list)){
-                        if( h->ref_count[list] > 1 ){
+                        if( h->ref_count_mvc[h->view_id][list] > 1 ){
                             ref[list][i] = decode_cabac_mb_ref( h, list, 4*i );
-                            if(ref[list][i] >= (unsigned)h->ref_count[list]){
-                                av_log(s->avctx, AV_LOG_ERROR, "Reference %d >= %d\n", ref[list][i], h->ref_count[list]);
+                            if(ref[list][i] >= (unsigned)h->ref_count_mvc[h->view_id][list]){
+                                av_log(s->avctx, AV_LOG_ERROR, "Reference %d >= %d\n", ref[list][i], h->ref_count_mvc[h->view_id][list]);
                                 return -1;
                             }
                         }else
@@ -2100,7 +2100,7 @@ decode_intra_mb:
         if(dct8x8_allowed)
             dct8x8_allowed = get_dct8x8_allowed(h);
 
-        for(list=0; list<h->list_count; list++){
+        for(list=0; list<h->list_count_mvc[h->view_id]; list++){
             for(i=0; i<4; i++){
                 h->ref_cache[list][ scan8[4*i]   ]=h->ref_cache[list][ scan8[4*i]+1 ];
                 if(IS_DIRECT(h->sub_mb_type[i])){
@@ -2164,13 +2164,13 @@ decode_intra_mb:
     } else {
         int list, i;
         if(IS_16X16(mb_type)){
-            for(list=0; list<h->list_count; list++){
+            for(list=0; list<h->list_count_mvc[h->view_id]; list++){
                 if(IS_DIR(mb_type, 0, list)){
                     int ref;
-                    if(h->ref_count[list] > 1){
+                    if(h->ref_count_mvc[h->view_id][list] > 1){
                         ref= decode_cabac_mb_ref(h, list, 0);
-                        if(ref >= (unsigned)h->ref_count[list]){
-                            av_log(s->avctx, AV_LOG_ERROR, "Reference %d >= %d\n", ref, h->ref_count[list]);
+                        if(ref >= (unsigned)h->ref_count_mvc[h->view_id][list]){
+                            av_log(s->avctx, AV_LOG_ERROR, "Reference %d >= %d\n", ref, h->ref_count_mvc[h->view_id][list]);
                             return -1;
                         }
                     }else
@@ -2178,7 +2178,7 @@ decode_intra_mb:
                         fill_rectangle(&h->ref_cache[list][ scan8[0] ], 4, 4, 8, ref, 1);
                 }
             }
-            for(list=0; list<h->list_count; list++){
+            for(list=0; list<h->list_count_mvc[h->view_id]; list++){
                 if(IS_DIR(mb_type, 0, list)){
                     int mx,my,mpx,mpy;
                     pred_motion(h, 0, 4, list, h->ref_cache[list][ scan8[0] ], &mx, &my);
@@ -2191,14 +2191,14 @@ decode_intra_mb:
             }
         }
         else if(IS_16X8(mb_type)){
-            for(list=0; list<h->list_count; list++){
+            for(list=0; list<h->list_count_mvc[h->view_id]; list++){
                     for(i=0; i<2; i++){
                         if(IS_DIR(mb_type, i, list)){
                             int ref;
-                            if(h->ref_count[list] > 1){
+                            if(h->ref_count_mvc[h->view_id][list] > 1){
                                 ref= decode_cabac_mb_ref( h, list, 8*i );
-                                if(ref >= (unsigned)h->ref_count[list]){
-                                    av_log(s->avctx, AV_LOG_ERROR, "Reference %d >= %d\n", ref, h->ref_count[list]);
+                                if(ref >= (unsigned)h->ref_count_mvc[h->view_id][list]){
+                                    av_log(s->avctx, AV_LOG_ERROR, "Reference %d >= %d\n", ref, h->ref_count_mvc[h->view_id][list]);
                                     return -1;
                                 }
                             }else
@@ -2208,7 +2208,7 @@ decode_intra_mb:
                             fill_rectangle(&h->ref_cache[list][ scan8[0] + 16*i ], 4, 2, 8, (LIST_NOT_USED&0xFF), 1);
                     }
             }
-            for(list=0; list<h->list_count; list++){
+            for(list=0; list<h->list_count_mvc[h->view_id]; list++){
                 for(i=0; i<2; i++){
                     if(IS_DIR(mb_type, i, list)){
                         int mx,my,mpx,mpy;
@@ -2226,14 +2226,14 @@ decode_intra_mb:
             }
         }else{
             assert(IS_8X16(mb_type));
-            for(list=0; list<h->list_count; list++){
+            for(list=0; list<h->list_count_mvc[h->view_id]; list++){
                     for(i=0; i<2; i++){
                         if(IS_DIR(mb_type, i, list)){ //FIXME optimize
                             int ref;
-                            if(h->ref_count[list] > 1){
+                            if(h->ref_count_mvc[h->view_id][list] > 1){
                                 ref= decode_cabac_mb_ref( h, list, 4*i );
-                                if(ref >= (unsigned)h->ref_count[list]){
-                                    av_log(s->avctx, AV_LOG_ERROR, "Reference %d >= %d\n", ref, h->ref_count[list]);
+                                if(ref >= (unsigned)h->ref_count_mvc[h->view_id][list]){
+                                    av_log(s->avctx, AV_LOG_ERROR, "Reference %d >= %d\n", ref, h->ref_count_mvc[h->view_id][list]);
                                     return -1;
                                 }
                             }else
@@ -2243,7 +2243,7 @@ decode_intra_mb:
                             fill_rectangle(&h->ref_cache[list][ scan8[0] + 2*i ], 2, 4, 8, (LIST_NOT_USED&0xFF), 1);
                     }
             }
-            for(list=0; list<h->list_count; list++){
+            for(list=0; list<h->list_count_mvc[h->view_id]; list++){
                 for(i=0; i<2; i++){
                     if(IS_DIR(mb_type, i, list)){
                         int mx,my,mpx,mpy;
@@ -2413,8 +2413,8 @@ decode_intra_mb:
     write_back_non_zero_count(h);
 
     if(MB_MBAFF){
-        h->ref_count[0] >>= 1;
-        h->ref_count[1] >>= 1;
+        h->ref_count_mvc[h->view_id][0] >>= 1;
+        h->ref_count_mvc[h->view_id][1] >>= 1;
     }
 
     return 0;

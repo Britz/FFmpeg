@@ -36,6 +36,20 @@ int min(int a, int b);
  */
 int max(int a, int b);
 
+/** EXTRACT H264Context
+ *  Extracts H264Context out of AVCodecContext and initializes
+ *  pointers and fields
+ *
+ *  return the initialized context
+ */
+void extract_H264Context(const AVCodecContext *avctx, H264Context *h[MAX_VIEW_COUNT]);
+
+/** INIT H264Context
+ * 	Does the same initialization then extract_H264Context()
+ * 	without extracting H264Context out of AVCodecContext.
+ *
+ */
+void init_H264Context(H264Context *h, int view_id);
 
 // ==================================================================== //
 //  							CLAUSES									//
@@ -196,7 +210,7 @@ int ff_h264_mvc_reorder_ref_pic_list(H264Context *h, SPS* sps);
  *  NAL unit header MVC extension semantics
  *
  */
-int ff_h264_mvc_deploy_nal_header_threaded(H264Context *h, H264Context *h0);
+int ff_h264_deploy_prefix_nal_threaded(H264Context *h, H264Context *h0);
 int ff_h264_mvc_deploy_nal_header(H264Context *h);
 
 /** H.7.4.1.1
@@ -217,7 +231,7 @@ int ff_h264_mvc_get_voidx(H264Context *h, SPS *sps);
 /** H.10.2.1
  * 	Reallocates the DPB according to H.264 Annex H.
  *
- *  h->s.picture is found as DPB (JB TODO not sure if this is the only one)
+ *  h->s.picture is found as DPB
  *
  * 	Level limits common to Multiview High and Stereo High profiles
  *
@@ -230,6 +244,19 @@ int ff_h264_mvc_get_voidx(H264Context *h, SPS *sps);
  */
 void ff_h264_mvc_realloc_dpb(H264Context *h);
 
+/** H.10.2.1
+ * 	Initializes/Recalculates the picture count for DPB according to H.264 Annex H.
+ *	In addition the corresponding fields s->picture_range_start and s->picture_range_end are adapted.
+ *
+ * 	Level limits common to Multiview High and Stereo High profiles
+ * 	"...
+ * 	MaxDpbFrames is equal to
+ * 	Min( mvcScaleFactor * MaxDpbMbs / ( PicWidthInMbs * FrameHeightInMbs ),
+ * 	Max( 1, Ceil( log2( NumViews ) ) ) * 16 ) and MaxDpbMbs is specified in Table A-1.
+ * 	..."
+ *
+ */
+void ff_h264_init_picture_count(H264Context *h, MpegEncContext *s);
 
 /** H.14.1
  * 	MVC VUI parameters extension syntax
