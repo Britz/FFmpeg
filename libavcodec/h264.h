@@ -108,7 +108,8 @@
  */
 #define DELAYED_PIC_REF 4
 // EDIT JB reference value for inter view references
- #define INTER_PIC_REF 8
+#define INTER_PIC_REF 8
+
 // END EDIT
 
 #define QP_MAX_NUM (51 + 4*6)           // The maximum supported qp
@@ -752,20 +753,20 @@ typedef struct H264Context {
 	// EDIT for MVC support
 	// @author: Jochen Britz
 
-	// just for easier handling of mvc
-	u_int8_t is_mvc;
-	int base_view_id;
-	u_int16_t *view_count;
-	Picture* inter_ref_list[MAX_VIEW_COUNT];
+	// just for easier handling of mvc (not in the standard)
+	u_int8_t is_mvc;   								///< signals, if MVC is available or not (NAL unit 14 or 20 received)
+	int base_view_id;  								///< view id of the base view, not the vOIdx of the base view!
+	Picture* inter_view_ref_list[MAX_VIEW_COUNT]; 	///< contains the pictures with inter_view_flag
+	struct H264Context* mvc_context[MAX_VIEW_COUNT];///< contains pointers to each view context indexed by vOIdx
+	int voidx;										///< view order index (vOIdx) of this context.
+
+	u_int8_t prefix_nal_present; 					///< signals, that informations of a prefix NAL unit are present for current NAL unit
+
 
 	// Slice header
 	int idr_pic_id;
 
-	// PREFIX NAL unit
-	u_int8_t prefix_nal_present; /* used to signal, that informations of a
-									prefix NAL unit are present for current NAL unit.
-									value is computed and not in the standard */
-
+	// Prefix NAL unit
 	u_int8_t adaptive_ref_base_pic_marking_mode_flag;
 	int difference_of_base_pic_nums_minus1;
 	int long_term_base_pic_num;

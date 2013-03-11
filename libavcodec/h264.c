@@ -866,7 +866,7 @@ int ff_h264_alloc_tables(H264Context *h) {
 	MpegEncContext * const s = &h->s;
 	const int big_mb_num = s->mb_stride * (s->mb_height + 1);
 	const int row_mb_num = 2 * s->mb_stride * FFMAX(s->avctx->thread_count, 1);
-	int x, y, i;
+	int x, y;
 
 	FF_ALLOCZ_OR_GOTO(h->s.avctx, h->intra4x4_pred_mode, row_mb_num * 8 * sizeof(uint8_t), fail)
 	FF_ALLOCZ_OR_GOTO(h->s.avctx, h->non_zero_count, big_mb_num * 48 * sizeof(uint8_t), fail)
@@ -908,7 +908,6 @@ int ff_h264_alloc_tables(H264Context *h) {
  */
 static void clone_tables(H264Context *dst, H264Context *src, int i) {
 	MpegEncContext * const s = &src->s;
-	int j;
 	dst->intra4x4_pred_mode = src->intra4x4_pred_mode + i * 8 * 2 * s->mb_stride;
 	dst->non_zero_count = src->non_zero_count;
 	dst->slice_table = src->slice_table;
@@ -1022,59 +1021,83 @@ int ff_h264_decode_extradata(H264Context *h, const uint8_t *buf, int size) {
 }
 
 av_cold int ff_h264_decode_init(AVCodecContext *avctx) {
-	// EDIT JB extract_H264Context
-	H264Context *h = extract_H264Context(avctx);
-	// H264Context *h = avctx->priv_data;
-	// END EDIT
-	MpegEncContext * const s = &h->s;
+	H264Context *h, *h0 = 0;
 	int i,j;
 
-	ff_MPV_decode_defaults(s);
+	// H264Context *h = avctx->priv_data;
 
-	s->avctx = avctx;
-	common_init(h);
+	for(i = 0; i<MAX_VIEW_COUNT; i++){
+		MpegEncContext * const s = ff_h264_extract_Context(avctx, &h, i);
 
-	s->out_format = FMT_H264;
-	s->workaround_bugs = avctx->workaround_bugs;
+		if(i == 0){
+			h0 = h;
+		}
+//		else{
+//			memcpy(h->pps_buffers, h0->pps_buffers, sizeof(h0->pps_buffers));
+//			memcpy(h->sps_buffers, h0->sps_buffers, sizeof(h0->sps_buffers));
+//			memcpy(h->sub_sps_buffers, h0->sub_sps_buffers, sizeof(h0->sub_sps_buffers));
+//			memcpy(h->inter_view_ref_list, h0->inter_view_ref_list, sizeof(h0->inter_view_ref_list));
+//		}
 
-	/* set defaults */
-	// s->decode_mb = ff_h263_decode_mb;
-	s->quarter_sample = 1;
-	if (!avctx->has_b_frames) s->low_delay = 1;
+		h0->mvc_context[i] = h;
+		// END EDIT
 
-	avctx->chroma_sample_location = AVCHROMA_LOC_LEFT;
+		ff_MPV_decode_defaults(s);
 
-	ff_h264_decode_init_vlc();
+		s->avctx = avctx;
+		common_init(h);
 
-	h->pixel_shift = 0;
-	h->sps.bit_depth_luma = avctx->bits_per_raw_sample = 8;
+		s->out_format = FMT_H264;
+		s->workaround_bugs = avctx->workaround_bugs;
 
-	h->thread_context[0] = h;
-	h->outputed_poc = h->next_outputed_poc = INT_MIN;
-	for (j = 0; j < MAX_DELAYED_PIC_COUNT; j++){
-			h->last_pocs[j] = INT_MIN;
+		/* set defaults */
+		// s->decode_mb = ff_h263_decode_mb;
+		s->quarter_sample = 1;
+		if (!avctx->has_b_frames) s->low_delay = 1;
+
+		avctx->chroma_sample_location = AVCHROMA_LOC_LEFT;
+
+		ff_h264_decode_init_vlc();
+
+		h->pixel_shift = 0;
+		h->sps.bit_depth_luma = avctx->bits_per_raw_sample = 8;
+
+		h->thread_context[0] = h;
+		h->outputed_poc = h->next_outputed_poc = INT_MIN;
+		for (j = 0; j < MAX_DELAYED_PIC_COUNT; j++){
+				h->last_pocs[j] = INT_MIN;
+		}
+
+		h->prev_poc_msb = 1 << 16;
+		h->prev_frame_num = -1;
+		h->x264_build = -1;
+		ff_h264_reset_sei(h);
+		if (avctx->codec_id == CODEC_ID_H264) {
+			if (avctx->ticks_per_frame == 1) s->avctx->time_base.den *= 2;
+			avctx->ticks_per_frame = 2;
+		}
 	}
 
-	h->prev_poc_msb = 1 << 16;
-	h->prev_frame_num = -1;
-	h->x264_build = -1;
-	ff_h264_reset_sei(h);
-	if (avctx->codec_id == CODEC_ID_H264) {
-		if (avctx->ticks_per_frame == 1) s->avctx->time_base.den *= 2;
-		avctx->ticks_per_frame = 2;
-	}
+	// Do extra data decoding only once
 
 	if (avctx->extradata_size > 0 && avctx->extradata
-			&& ff_h264_decode_extradata(h, avctx->extradata, avctx->extradata_size) < 0) {
-		ff_h264_free_context(h);
+			&& ff_h264_decode_extradata(h0, avctx->extradata, avctx->extradata_size) < 0) {
+		ff_h264_free_context(h0);
 		return -1;
 	}
 
-	if (h->sps.bitstream_restriction_flag && s->avctx->has_b_frames < h->sps.num_reorder_frames) {
-		s->avctx->has_b_frames = h->sps.num_reorder_frames;
-		s->low_delay = 0;
-	}
 
+	for(i = 0; i<MAX_VIEW_COUNT; i++){
+		MpegEncContext * const s = ff_h264_extract_Context(avctx, &h, i);
+
+		if (h->sps.bitstream_restriction_flag && s->avctx->has_b_frames < h->sps.num_reorder_frames) {
+			s->avctx->has_b_frames = h->sps.num_reorder_frames;
+			s->low_delay = 0;
+		}
+		if(i != 0){
+			memcpy(h->mvc_context, h0->mvc_context, sizeof(h0->mvc_context));
+		}
+	}
 	return 0;
 }
 
@@ -1105,14 +1128,12 @@ static void copy_parameter_set(void **to, void **from, int count, int size) {
 
 static int decode_init_thread_copy(AVCodecContext *avctx) {
 	// EDIT JB init_thread_copy
-	H264Context *h_mvc[MAX_VIEW_COUNT];
 	H264Context *h;
 	int i;
-	extract_H264Context(avctx, h_mvc);
-	// H264Context *h = avctx->priv_data;
 
+	// H264Context *h = avctx->priv_data;
 	for(i = 0; i<MAX_VIEW_COUNT; i++){
-		h  = &h_mvc[i];
+		ff_h264_extract_Context(avctx, &h, i);
 		if (!avctx->internal->is_copy) return 0;
 		memset(h->sps_buffers, 0, sizeof(h->sps_buffers));
 		memset(h->pps_buffers, 0, sizeof(h->pps_buffers));
@@ -1129,22 +1150,19 @@ static int decode_init_thread_copy(AVCodecContext *avctx) {
 
 static int decode_update_thread_context(AVCodecContext *dst, const AVCodecContext *src) {
 	// EDIT JB update_thread_context
-	H264Context *h_mvc[MAX_VIEW_COUNT], *h1_mvc[MAX_VIEW_COUNT];
 	H264Context *h, *h1;
 	int inited, err, i, view_id;
 
-	extract_H264Context(dst, h);
-	extract_H264Context(src, h1);
+	for(view_id = 0; view_id<MAX_VIEW_COUNT; view_id++){
+		MpegEncContext * const s = ff_h264_extract_Context(dst, &h, view_id);
+		MpegEncContext * const s1 = ff_h264_extract_Context(src, &h1, view_id);
 
-	for(view_id =0; view_id<MAX_VIEW_COUNT; view_id++){
-		h = &h_mvc[view_id];
-		h1 = &h1_mvc[view_id];
-
-
-		// 	H264Context *h = dst->priv_data, *h1 = src->priv_data;
+		// H264Context *h = dst->priv_data, *h1 = src->priv_data;
+		// MpegEncContext * const s = &h->s, * const s1 = &h1->s;
 		// END EDIT
 
-		MpegEncContext * const s = &h->s, * const s1 = &h1->s;
+
+
 		inited = s->context_initialized, err;
 
 
@@ -1274,7 +1292,7 @@ int ff_h264_frame_start(H264Context *h) {
 	s->current_picture_ptr->f.key_frame = 0;
 	s->current_picture_ptr->sync = 0;
 	s->current_picture_ptr->mmco_reset = 0;
-	s->current_picture_ptr->f.reference;
+	//s->current_picture_ptr->f.reference = 0;
 
 	// JB View ID
 	// EDIT for MVC support
@@ -2384,34 +2402,38 @@ static void idr(H264Context *h) {
 		h->last_pocs[i] = INT_MIN;
 
 	for (i = 0; i < MAX_VIEW_COUNT; i++){
-		if(h->inter_ref_list[i] && h->inter_ref_list[i]->f.data[0]){
-			h->inter_ref_list[i]->f.reference = 0;
+		if(h->inter_view_ref_list[i] && h->inter_view_ref_list[i]->f.data[0]){
+			h->inter_view_ref_list[i]->f.reference = 0;
 		}
-		h->inter_ref_list[i] = 0;
+		h->inter_view_ref_list[i] = 0;
 	}
 }
 
 /* forget old pics after a seek */
 static void flush_dpb(AVCodecContext *avctx) {
-	// EDIT JB extract_H264Context
-	H264Context *h = extract_H264Context(avctx);
-	// H264Context *h = avctx->priv_data;
-	// END EDIT
+	// EDIT JB extract_Context
+	H264Context *h;
 	int i,j;
-	for (j = 0; j <= MAX_DELAYED_PIC_COUNT; j++) {
-		if (h->delayed_pic[j]) h->delayed_pic[j]->f.reference = 0;
-		h->delayed_pic[j] = NULL;
+
+	// H264Context *h = avctx->priv_data;
+	for(i = 0; i<MAX_VIEW_COUNT; i++){
+		ff_h264_extract_Context(avctx, &h, i);
+		// END EDIT
+		for (j = 0; j <= MAX_DELAYED_PIC_COUNT; j++) {
+			if (h->delayed_pic[j]) h->delayed_pic[j]->f.reference = 0;
+			h->delayed_pic[j] = NULL;
+		}
+		h->outputed_poc = h->next_outputed_poc = INT_MIN;
+		h->prev_interlaced_frame = 1;
+		idr(h);
+		h->prev_frame_num = -1;
+		if (h->s.current_picture_ptr) h->s.current_picture_ptr->f.reference = 0;
+		h->s.first_field = 0;
+		ff_h264_reset_sei(h);
+		ff_mpeg_flush(avctx);
+		h->recovery_frame = -1;
+		h->sync = 0;
 	}
-	h->outputed_poc = h->next_outputed_poc = INT_MIN;
-	h->prev_interlaced_frame = 1;
-	idr(h);
-	h->prev_frame_num = -1;
-	if (h->s.current_picture_ptr) h->s.current_picture_ptr->f.reference = 0;
-	h->s.first_field = 0;
-	ff_h264_reset_sei(h);
-	ff_mpeg_flush(avctx);
-	h->recovery_frame = -1;
-	h->sync = 0;
 }
 
 static int init_poc(H264Context *h) {
@@ -2699,59 +2721,35 @@ static int decode_slice_header(H264Context *h, H264Context *h0) {
 	s->pict_type = h->slice_type;
 
 	pps_id = get_ue_golomb(&s->gb);
-	if (pps_id >= MAX_PPS_COUNT) {
-		av_log(h->s.avctx, AV_LOG_ERROR, "pps_id %d out of range\n", pps_id);
-		return -1;
-	}
-	if (!h0->pps_buffers[pps_id]) {
-		av_log(h->s.avctx, AV_LOG_ERROR, "non-existing PPS %u referenced\n", pps_id);
-		return -1;
-	}
 
-	h0->pps = *h0->pps_buffers[pps_id];
-	h->pps = h0->pps;
+
 	// EDIT for MVC support
 	// JB Sub SPS handling and activation
 	// @author: Jochen Britz
-	if (!h0->pps_buffers[pps_id]) {
-		av_log(h->s.avctx, AV_LOG_ERROR, "PPS (%d) out of range while decoding slice header.\n",
-				pps_id);
-		return -1;
-	}
-	if (h0->nal_unit_type == NAL_EXT_SLICE) {
-		if (!h0->sub_sps_buffers[h0->pps.sps_id]) {
-			av_log(h0->s.avctx, AV_LOG_ERROR,
-					"Non-existing subset SPS %u referenced, try SPS instead.\n", h0->pps.sps_id);
-			// Try normal sps buffer
-			if (!h0->sps_buffers[h0->pps.sps_id]) {
-				av_log(h->s.avctx, AV_LOG_ERROR,
-						"Non-existing subset SPS %u referenced, also SPS %u is non-existing.\n",
-						h0->pps.sps_id, h0->pps.sps_id);
-				return -1;
-			}
-			h0->sps = *h0->sps_buffers[h0->pps.sps_id];
-			av_log(h->s.avctx, AV_LOG_ERROR, "SPS (%d) activated.\n", h0->pps.sps_id);
-		}
-		h0->sps = *h0->sub_sps_buffers[h0->pps.sps_id];
-		av_log(h->s.avctx, AV_LOG_ERROR, "Sub SPS (%d) activated.\n", h0->pps.sps_id);
-	} else {
-		if (!h0->sps_buffers[h0->pps.sps_id]) {
-			av_log(h->s.avctx, AV_LOG_ERROR, "Non-existing SPS %u referenced.\n", h0->pps.sps_id);
-			return -1;
-		}
-		h0->sps = *h0->sps_buffers[h0->pps.sps_id];
-		av_log(h->s.avctx, AV_LOG_ERROR, "SPS (%d) activated.\n", h0->pps.sps_id);
-	}
+
+	h->pps = *activate_PPS(h0, pps_id);
 	h->sps = h0->sps;
-	h->sps.pps_id = pps_id;
+	// after activating PPS and SPS set previous received values
 	h->sps.first_mb_in_slice = first_mb_in_slice;
-	// END EDIT
+
+	// if (pps_id >= MAX_PPS_COUNT) {
+	// 	av_log(h->s.avctx, AV_LOG_ERROR, "pps_id %d out of range\n", pps_id);
+	//	return -1;
+	// }
+	// if (!h0->pps_buffers[pps_id]) {
+	// 	av_log(h->s.avctx, AV_LOG_ERROR, "non-existing PPS %u referenced\n", pps_id);
+	//	return -1;
+	// }
+	// h0->pps = *h0->pps_buffers[pps_id];
+	// h->pps = h0->pps;
 	// if (!h0->sps_buffers[h->pps.sps_id]) {
 	//	  av_log(h->s.avctx, AV_LOG_ERROR, "non-existing SPS %u referenced\n",
 	//			h->pps.sps_id);
 	//    return -1;
 	// }
 	// h->sps = *h0->sps_buffers[h->pps.sps_id];
+
+	// END EDIT
 
 	s->avctx->profile = ff_h264_get_profile(&h->sps);
 	s->avctx->level = h->sps.level_idc;
@@ -2782,7 +2780,6 @@ static int decode_slice_header(H264Context *h, H264Context *h0) {
 	s->height = 16 * s->mb_height;
 
 	if (must_reinit) {
-		int j;
 		free_tables(h, 0);
 		flush_dpb(s->avctx);
 		ff_MPV_common_end(s);
@@ -2938,7 +2935,9 @@ static int decode_slice_header(H264Context *h, H264Context *h0) {
 				c->pixel_shift = h->pixel_shift;
 				c->cur_chroma_format_idc = h->cur_chroma_format_idc;
 				// EDIT JB initialize threaded H246Context hx in terms of MVC
-				init_H264Context(c, h->view_id);
+				c->view_id = h->view_id;
+				init_H264Context(c);
+				
 				// END EDIT
 				init_scan_tables(c);
 				clone_tables(c, h, i);
@@ -3525,62 +3524,34 @@ int ff_h264_svc_decode_slice_header_threaded(H264Context *h, H264Context *h0) {
 	s->pict_type = h->slice_type;
 
 	pps_id = get_ue_golomb(&s->gb);
-	if (pps_id >= MAX_PPS_COUNT) {
-		av_log(h->s.avctx, AV_LOG_ERROR, "pps_id %d out of range\n", pps_id);
-		return -1;
-	}
-	if (!h0->pps_buffers[pps_id]) {
-		av_log(h->s.avctx, AV_LOG_ERROR, "non-existing PPS %u referenced\n", pps_id);
-		return -1;
-	}
 
-	// activate PPS
-	h0->pps = *h0->pps_buffers[pps_id];
-	h->pps = h0->pps;
-	if (!h0->pps_buffers[pps_id]) {
-		av_log(h->s.avctx, AV_LOG_ERROR, "PPS (%d) out of range while decoding slice header\n",
-				pps_id);
-		return -1;
-	}
+	// EDIT for MVC support
+	// JB Sub SPS handling and activation
+	// @author: Jochen Britz
 
-	if (h->nal_unit_type == NAL_EXT_SLICE) {
-		if (!h0->sub_sps_buffers[h->pps.sps_id]) {
-			av_log(h->s.avctx, AV_LOG_ERROR,
-					"Non-existing subset SPS %u referenced, try SPS instead.\n", h->pps.sps_id);
-			// Try normal sps buffer
-			if (!h0->sps_buffers[h->pps.sps_id]) {
-				av_log(h->s.avctx, AV_LOG_ERROR,
-						"Non-existing subset SPS %u referenced, also SPS %u is non-existing.\n",
-						h->pps.sps_id, h->pps.sps_id);
-				return -1;
-			}
-			h0->sps = *h0->sps_buffers[h->pps.sps_id];
-			av_log(h->s.avctx, AV_LOG_ERROR, "SPS (%d) activated.\n", h->pps.sps_id);
-
-		}
-		h0->sps = *h0->sub_sps_buffers[h->pps.sps_id];
-		av_log(h->s.avctx, AV_LOG_ERROR, "Sub SPS (%d) activated.\n", h->pps.sps_id);
-	} else {
-		if (!h0->sps_buffers[h->pps.sps_id]) {
-			av_log(h->s.avctx, AV_LOG_ERROR,
-					"Non-existing SPS %u referenced, try sub SPS instead.\n", h->pps.sps_id);
-			// Try sub sps buffer
-			if (!h0->sub_sps_buffers[h->pps.sps_id]) {
-				av_log(h->s.avctx, AV_LOG_ERROR,
-						"Non-existing SPS %u referenced, also subset SPS %u is non-existing.\n",
-						h->pps.sps_id, h->pps.sps_id);
-				return -1;
-			}
-			h0->sps = *h0->sub_sps_buffers[h->pps.sps_id];
-			av_log(h->s.avctx, AV_LOG_ERROR, "Sub SPS (%d) activated.\n", h->pps.sps_id);
-		}
-		h0->sps = *h0->sps_buffers[h->pps.sps_id];
-		av_log(h->s.avctx, AV_LOG_ERROR, "SPS (%d) activated.\n", h->pps.sps_id);
-	}
-	// after activating SPS set previous recieved values
+	h->pps = *activate_PPS(h0, pps_id);
 	h->sps = h0->sps;
-	h->sps.pps_id = pps_id;
+	// after activating PPS and SPS set previous received values
 	h->sps.first_mb_in_slice = first_mb_in_slice;
+
+	// if (pps_id >= MAX_PPS_COUNT) {
+	// 	av_log(h->s.avctx, AV_LOG_ERROR, "pps_id %d out of range\n", pps_id);
+	//	return -1;
+	// }
+	// if (!h0->pps_buffers[pps_id]) {
+	// 	av_log(h->s.avctx, AV_LOG_ERROR, "non-existing PPS %u referenced\n", pps_id);
+	//	return -1;
+	// }
+	// h0->pps = *h0->pps_buffers[pps_id];
+	// h->pps = h0->pps;
+	// if (!h0->sps_buffers[h->pps.sps_id]) {
+	//	  av_log(h->s.avctx, AV_LOG_ERROR, "non-existing SPS %u referenced\n",
+	//			h->pps.sps_id);
+	//    return -1;
+	// }
+	// h->sps = *h0->sps_buffers[h->pps.sps_id];
+
+	// END EDIT
 
 	s->avctx->profile = ff_h264_get_profile(&h->sps);
 	s->avctx->level = h->sps.level_idc;
@@ -3779,7 +3750,8 @@ int ff_h264_svc_decode_slice_header_threaded(H264Context *h, H264Context *h0) {
 				c->pixel_shift = h->pixel_shift;
 				c->cur_chroma_format_idc = h->cur_chroma_format_idc;
 				// EDIT JB initialize threaded H246Context hx in terms of MVC
-				init_H264Context(c, h->view_id);
+				c->view_id = h->view_id;
+				init_H264Context(c);
 				// END EDIT
 				init_scan_tables(c);
 				clone_tables(c, h, i);
@@ -5062,7 +5034,8 @@ static int decode_nal_units(H264Context *h, const uint8_t *buf, int buf_size) {
 				hx->intra_gb_ptr = hx->inter_gb_ptr = &hx->s.gb;
 				hx->s.data_partitioning = 0;
 
-				if (err = decode_slice_header(hx, h)) break;
+				if (err = decode_slice_header(hx, h))
+					break;
 
 				if (h->sei_recovery_frame_cnt >= 0
 						&& (h->recovery_frame < 0
@@ -5557,7 +5530,9 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
 	const uint8_t *buf = avpkt->data;
 	int buf_size = avpkt->size;
 	AVFrame *pict = data;
-	H264Context *h = extract_H264Context(avctx);
+	H264Context *h;
+	int i, buf_idx = 0;
+
 	int frame_end, consumed = 0;
 	int out_idx = buf_size;
 	int target_view = 0;
@@ -5566,8 +5541,7 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
 	AVFrame out[MAX_VIEW_COUNT];
 	int out_size[MAX_VIEW_COUNT];
 
-	int i, buf_idx = 0;
-
+	ff_h264_extract_Context(avctx, &h, 0);
 
 	if (h->is_avc && buf_size >= 9 && buf[0] == 1 && buf[2] == 0 && (buf[4] & 0xFC) == 0xFC // buf[4] == 111111xx
 	&& (buf[5] & 0x1F) 		// buf[5]  & 00011111
@@ -5591,8 +5565,9 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
 	}
 	not_extra:
 
+	for(i = 0; i<MAX_VIEW_COUNT; i++){
+		ff_h264_extract_Context(avctx, &h,i);
 
-	for(i=0;i<MAX_VIEW_COUNT;i++){
 		frame_end = ff_h264_find_frame_end(h, buf+buf_idx, buf_size-buf_idx);
 		consumed = decode_frame_mvc(h, &out[i], &out_size[i], buf+buf_idx, frame_end);
 		if(consumed >=0){
@@ -5605,12 +5580,12 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
 		}else{
 		//	av_log(h->s.avctx, AV_LOG_INFO, "Decode frame on view %d has consumed %d bytes\n", h->view_id, consumed);
 		}
-		if(frame_end >=buf_size){
+		if(frame_end >= buf_size){
 			out_idx = buf_size - buf_idx;
 			break;
 		}
-	}
 
+	}
 	*pict = out[target_voidx];
 	*data_size = out_size[target_voidx];
 
@@ -5625,33 +5600,41 @@ av_cold void ff_h264_free_context(H264Context *h) {
 
 	free_tables(h, 1); // FIXME cleanup init stuff perhaps
 
-	for (i = 0; i < MAX_SPS_COUNT; i++)
-		av_freep(h->sps_buffers + i);
-
-	for (i = 0; i < MAX_PPS_COUNT; i++)
-		av_freep(h->pps_buffers + i);
-
 	// EDIT for MVC support
-	// JB subset SPS buffer initialization for multi-threading
-	for (i = 0; i < MAX_SPS_COUNT; i++) {
-		av_freep(h->sub_sps_buffers + i);
+	if(h->voidx == 0){
+	// END EDIT
+		for (i = 0; i < MAX_SPS_COUNT; i++)
+			av_freep(h->sps_buffers + i);
+
+		for (i = 0; i < MAX_PPS_COUNT; i++)
+			av_freep(h->pps_buffers + i);
+
+		// EDIT for MVC support
+		// JB subset SPS buffer initialization for multi-threading
+		for (i = 0; i < MAX_SPS_COUNT; i++) {
+			av_freep(h->sub_sps_buffers + i);
+		}
 	}
 	// END EDIT
-
 }
 
 static av_cold int h264_decode_end(AVCodecContext *avctx) {
-	// EDIT JB extract_H264Context
-	H264Context *h = extract_H264Context(avctx);
+	// EDIT JB extract_Context
+	H264Context *h;
+	int i;
+
 	// H264Context *h = avctx->priv_data;
-	// END EDIT
-	MpegEncContext *s = &h->s;
-	ff_h264_remove_all_refs(h);
-	ff_h264_free_context(h);
+	for(i = 0; i<MAX_VIEW_COUNT; i++){
+		MpegEncContext * const s = ff_h264_extract_Context(avctx, &h, i);
+		// END EDIT
 
-	ff_MPV_common_end(s);
+		ff_h264_remove_all_refs(h);
 
-// memset(h, 0, sizeof(H264Context));
+		ff_h264_free_context(h);
+
+		ff_MPV_common_end(s);
+	}
+	// memset(h, 0, sizeof(H264Context));
 
 	return 0;
 }
@@ -5676,29 +5659,34 @@ static const AVClass h264_class = { "H264 Decoder", av_default_item_name, h264_o
 static const AVClass h264_vdpau_class = { "H264 VDPAU Decoder", av_default_item_name, h264_options,
 		LIBAVUTIL_VERSION_INT, };
 
-AVCodec ff_h264_decoder = { .name = "h264", .type = AVMEDIA_TYPE_VIDEO, .id = CODEC_ID_H264,
-		.priv_data_size = sizeof(H264Context[MAX_VIEW_COUNT]), .init = ff_h264_decode_init,
-		.close = h264_decode_end, .decode = decode_frame, .capabilities =
-				/*CODEC_CAP_DRAW_HORIZ_BAND |*/CODEC_CAP_DR1 | CODEC_CAP_DELAY
-						| CODEC_CAP_SLICE_THREADS | CODEC_CAP_FRAME_THREADS, .flush = flush_dpb,
+AVCodec ff_h264_decoder = {
+		.name = "h264",
+		.type = AVMEDIA_TYPE_VIDEO,
+		.id = CODEC_ID_H264,
+		.priv_data_size = sizeof(H264Context)*MAX_VIEW_COUNT,
+		.init = ff_h264_decode_init,
+		.close = h264_decode_end,
+		.decode = decode_frame,
+		.capabilities =/*CODEC_CAP_DRAW_HORIZ_BAND |*/CODEC_CAP_DR1 | CODEC_CAP_DELAY | CODEC_CAP_SLICE_THREADS | CODEC_CAP_FRAME_THREADS,
+		.flush = flush_dpb,
 		.long_name = NULL_IF_CONFIG_SMALL("H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10"),
 		.init_thread_copy = ONLY_IF_THREADS_ENABLED(decode_init_thread_copy),
-		.update_thread_context = ONLY_IF_THREADS_ENABLED(decode_update_thread_context), .profiles =
-				NULL_IF_CONFIG_SMALL(profiles), .priv_class = &h264_class, };
+		.update_thread_context = ONLY_IF_THREADS_ENABLED(decode_update_thread_context),
+		.profiles = NULL_IF_CONFIG_SMALL(profiles),
+		.priv_class = &h264_class,
+};
 
 #if CONFIG_H264_VDPAU_DECODER
-AVCodec ff_h264_vdpau_decoder =
-{	.name = "h264_vdpau", .type = AVMEDIA_TYPE_VIDEO, .id = CODEC_ID_H264,
-	.priv_data_size = sizeof(H264Context), .init =
-	ff_h264_decode_init, .close = h264_decode_end, .decode =
-	decode_frame, .capabilities = CODEC_CAP_DR1
-	| CODEC_CAP_DELAY | CODEC_CAP_HWACCEL_VDPAU, .flush =
-	flush_dpb,
-	.long_name =
-	NULL_IF_CONFIG_SMALL(
-			"H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10 (VDPAU acceleration)"),
-	.pix_fmts = (const enum PixelFormat[] ) {PIX_FMT_VDPAU_H264,
-		PIX_FMT_NONE}, .profiles =
-	NULL_IF_CONFIG_SMALL(profiles), .priv_class =
-	&h264_vdpau_class,};
+AVCodec ff_h264_vdpau_decoder = {
+		.name = "h264_vdpau", .type = AVMEDIA_TYPE_VIDEO, .id = CODEC_ID_H264,
+		.priv_data_size = sizeof(H264Context),
+		.init = ff_h264_decode_init,
+		.close = h264_decode_end,
+		.decode = decode_frame,
+		.capabilities = CODEC_CAP_DR1 | CODEC_CAP_DELAY | CODEC_CAP_HWACCEL_VDPAU,
+		.flush = flush_dpb,
+	    .long_name =NULL_IF_CONFIG_SMALL("H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10 (VDPAU acceleration)"),
+		.pix_fmts = (const enum PixelFormat[] ) {PIX_FMT_VDPAU_H264, PIX_FMT_NONE},
+		.profiles = NULL_IF_CONFIG_SMALL(profiles),
+		.priv_class = &h264_vdpau_class,};
 #endif

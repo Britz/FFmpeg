@@ -32,16 +32,127 @@ int max(int a, int b) {
 	return (a > b) ? a : b;
 }
 
-void extract_H264Context(const AVCodecContext *avctx, H264Context *h[MAX_VIEW_COUNT]){
-	int i;
-	h = avctx->priv_data;
-	for(i=0 ;i<MAX_VIEW_COUNT; i++){
-		init_H264Context(h[i]);
+MpegEncContext* ff_h264_extract_Context(const AVCodecContext * avctx, H264Context** h, int voidx){
+	H264Context *h_mvc = avctx->priv_data;
+	if(voidx < 0 && voidx > MAX_VIEW_COUNT){
+		(*h) = &h_mvc[0];
+		(*h)->voidx = 0;
+//		av_log((*h)->s.avctx, AV_LOG_ERROR,"ff_h264_extract_Context: voidx %d out of range [0..%d] took H264Context[0] instead.\n", voidx, MAX_VIEW_COUNT);
+	}else{
+		(*h) = &h_mvc[voidx];
+		(*h)->voidx = voidx;
+//		av_log((*h)->s.avctx, AV_LOG_INFO,"ff_h264_extract_Context: H264Context[%d] extracted.\n", voidx);
 	}
+	init_H264Context(*h);
+	return &(*h)->s;
 }
 
 void init_H264Context(H264Context *h){
-	// JB TODO all context schould share the same sps, pps and inter view references
+	// ATM nothing has to be initialised
+}
+
+
+int save_PPS(H264Context *h, PPS* pps, uint pps_id){
+	int i, ret = 0;
+	i = h->voidx;
+	if(pps_id > MAX_PPS_COUNT){
+		av_log(h->s.avctx, AV_LOG_ERROR, "pps_id (%u) out of range [0..%d]\n", pps_id, MAX_PPS_COUNT);
+		return -1;
+	}
+//	for(i = 0; i < MAX_VIEW_COUNT; i++){
+		if(h->mvc_context[i]->pps_buffers[pps_id]){
+			av_free(h->pps_buffers[pps_id]);
+			ret = 1;
+		}
+		h->mvc_context[i]->pps_buffers[pps_id] = pps;
+//	}
+	return ret;
+}
+
+
+int save_SPS(H264Context *h, SPS* sps){
+	int i, ret = 0;
+	i = h->voidx;
+	if(h->nal_unit_type == NAL_SUB_SPS){
+		sps->is_sub_sps = 1;
+//		for(i = 0; i < MAX_VIEW_COUNT; i++){
+			if(h->mvc_context[i]->sub_sps_buffers[sps->id]){
+				av_free(h->sub_sps_buffers[sps->id]);
+				ret = 1;
+			}
+			h->mvc_context[i]->sub_sps_buffers[sps->id] = sps;
+//		}
+		/* Do not automatically activate SPS.
+		   Subset SPS are activated through MVC SEI messages
+		   or NAL units with type 20. (NAL_EXT_SLICE) */
+	}else if(h->nal_unit_type ==NAL_SPS || h->nal_unit_type == NAL_SPS_EXT){
+		sps->is_sub_sps = 0;
+//		for(i = 0; i < MAX_VIEW_COUNT; i++){
+			if(h->mvc_context[i]->sps_buffers[sps->id]){
+				av_free(h->sps_buffers[sps->id]);
+				ret = 1;
+			}
+			h->mvc_context[i]->sps_buffers[sps->id] = sps;
+			// activate SPS
+			h->mvc_context[i]->sps = *sps;
+//		}
+	}else{
+		return -1;
+	}
+	return ret;
+}
+
+SPS* activate_SPS(H264Context *h, uint sps_id){
+	if (h->nal_unit_type == NAL_EXT_SLICE) { // MVC slice -> use sub_sps_buffer
+		if(h->sps.id == sps_id && h->sps.is_sub_sps){
+			return &h->sps;
+		}
+		if(!h->sub_sps_buffers[sps_id]) {
+			av_log(h->s.avctx, AV_LOG_ERROR,
+					"Non-existing subset SPS (%u) referenced, try SPS instead.\n", sps_id);
+			// Try normal sps buffer
+			if (!h->sps_buffers[sps_id]) {
+				av_log(h->s.avctx, AV_LOG_ERROR,
+						"Non-existing subset SPS (%u) referenced, also SPS (%u) is non-existing.\n",
+						sps_id, sps_id);
+				return 0;
+			}
+			h->sps = *h->sps_buffers[sps_id];
+			av_log(h->s.avctx, AV_LOG_ERROR, "SPS (%u) activated.\n", sps_id);
+		}
+		h->sps = *h->sub_sps_buffers[sps_id];
+		av_log(h->s.avctx, AV_LOG_ERROR, "Sub SPS (%u) activated.\n", sps_id);
+	} else {  // normal slice -> use sps_buffer
+		if(h->sps.id == sps_id && !h->sps.is_sub_sps){
+			return &h->sps;
+		}
+		if (!h->sps_buffers[sps_id]) {
+			av_log(h->s.avctx, AV_LOG_ERROR, "Non-existing SPS (%u) referenced.\n", sps_id);
+			return 0;
+		}
+		h->sps = *h->sps_buffers[sps_id];
+		av_log(h->s.avctx, AV_LOG_ERROR, "SPS (%u) activated.\n", sps_id);
+	}
+	return &h->sps;
+}
+
+PPS* activate_PPS(H264Context *h, uint pps_id){
+	if (pps_id >= MAX_PPS_COUNT) {
+		av_log(h->s.avctx, AV_LOG_ERROR, "pps_id %u out of range\n", pps_id);
+		return 0;
+	}
+	if (!h->pps_buffers[pps_id]) {
+		av_log(h->s.avctx, AV_LOG_ERROR, "Non-existing PPS (%u) referenced.\n", pps_id);
+		return 0;
+	}
+
+	h->pps = *h->pps_buffers[pps_id];
+
+	if(!activate_SPS(h ,h->pps.sps_id)){
+		//av_log(h->s.avctx, AV_LOG_ERROR, "");
+	}
+	h->sps.pps_id = pps_id;
+	return &h->pps;
 }
 
 /** 7.3.2.1.2 */
@@ -820,7 +931,7 @@ void ff_h264_mvc_decode_nal_header(H264Context *h, const uint8_t *src) {
 		//	av_log(h->s.avctx, AV_LOG_DEBUG,
 		//			"MVC extension NAL unit with type: %d recieved \n",
 		//			h->nal_unit_type);
-		init_H264Context(h, h->view_id);
+		init_H264Context(h);
 	}
 }
 
@@ -922,8 +1033,8 @@ int ff_h264_mvc_reorder_ref_pic_list(H264Context *h, SPS* sps){
 				if(index >= ref_count ){
 					break;
 				}
-				if(h->inter_ref_list[h->sps.anchor_ref[list][h->view_id][i]]){
-					h->ref_list[list][index++] = *h->inter_ref_list[h->sps.anchor_ref[list][h->view_id][i]];
+				if(h->inter_view_ref_list[h->sps.anchor_ref[list][h->view_id][i]]){
+					h->ref_list[list][index++] = *h->inter_view_ref_list[h->sps.anchor_ref[list][h->view_id][i]];
 				}
 			}
 
@@ -1050,8 +1161,8 @@ int ff_h264_mvc_reorder_ref_pic_list(H264Context *h, SPS* sps){
 
 						targetViewID = view_ref_list[view_idx_pred];
 
-						if(h->inter_ref_list[targetViewID]){
-							ref = h->inter_ref_list[targetViewID];
+						if(h->inter_view_ref_list[targetViewID]){
+							ref = h->inter_view_ref_list[targetViewID];
 							ref->pic_id = h->curr_pic_num;
 						}
 
@@ -1264,7 +1375,7 @@ int ff_h264_mvc_get_voidx(H264Context *h, SPS *sps) {
 		sub_sps = sps;
 	}
 
-	if (sub_sps->view_id <= sub_sps->num_views_minus1) {
+	if (sub_sps->view_id[h->view_id] > sub_sps->num_views_minus1) {
 		av_log(h->s.avctx, AV_LOG_ERROR,
 				"sps->view_id overflow, num_views_minus1 to big\n");
 		return 0;

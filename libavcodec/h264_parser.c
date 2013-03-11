@@ -295,7 +295,8 @@ static inline int parse_nal_units(AVCodecParserContext *s,
                 /* key frame, since recovery_frame_cnt is set */
                 s->key_frame = 1;
             }
-            pps_id=get_ue_golomb(&h->s.gb);
+            pps_id = get_ue_golomb(&h->s.gb);
+            //activate_PPS(h, pps_id);
             if(pps_id>=MAX_PPS_COUNT) {
                 av_log(h->s.avctx, AV_LOG_ERROR, "pps_id out of range\n");
                 return -1;
@@ -321,12 +322,13 @@ static inline int parse_nal_units(AVCodecParserContext *s,
 				}
 				h->sps = *h->sps_buffers[h->pps.sps_id];
 			}
-			// END EDIT
-            // if(!h->sps_buffers[h->pps.sps_id]) {
-			// 	  av_log(h->s.avctx, AV_LOG_ERROR, "non-existing SPS referenced\n");
-            //    return -1;
-            // }
-            //h->sps = *h->sps_buffers[h->pps.sps_id];
+//            if(!h->sps_buffers[h->pps.sps_id]) {
+//			 	  av_log(h->s.avctx, AV_LOG_ERROR, "non-existing SPS referenced\n");
+//                return -1;
+//            }
+//            h->sps = *h->sps_buffers[h->pps.sps_id];
+           // END EDIT
+
             h->frame_num = get_bits(&h->s.gb, h->sps.log2_max_frame_num);
 
             avctx->profile = ff_h264_get_profile(&h->sps);

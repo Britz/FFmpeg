@@ -251,83 +251,94 @@ static int start_frame(AVCodecContext          *avctx,
                        av_unused const uint8_t *buffer,
                        av_unused uint32_t       size)
 {
-	// EDIT JB extract_H264Context
-	H264Context *h = extract_H264Context(avctx);
+	H264Context *h;
+	int i;
+
 	// H264Context *h = avctx->priv_data;
-	// END EDIT
-    MpegEncContext * const s = &h->s;
-    struct vaapi_context * const vactx = avctx->hwaccel_context;
-    VAPictureParameterBufferH264 *pic_param;
-    VAIQMatrixBufferH264 *iq_matrix;
+	for(i = 0; i<MAX_VIEW_COUNT; i++){
+		MpegEncContext * const s = ff_h264_extract_Context(avctx, &h, i);
+		struct vaapi_context * const vactx = avctx->hwaccel_context;
+		VAPictureParameterBufferH264 *pic_param;
+		VAIQMatrixBufferH264 *iq_matrix;
 
-    av_dlog(avctx, "start_frame()\n");
+		av_dlog(avctx, "start_frame()\n");
 
-    vactx->slice_param_size = sizeof(VASliceParameterBufferH264);
+		vactx->slice_param_size = sizeof(VASliceParameterBufferH264);
 
-    /* Fill in VAPictureParameterBufferH264. */
-    pic_param = ff_vaapi_alloc_pic_param(vactx, sizeof(VAPictureParameterBufferH264));
-    if (!pic_param)
-        return -1;
-    fill_vaapi_pic(&pic_param->CurrPic, s->current_picture_ptr, s->picture_structure);
-    if (fill_vaapi_ReferenceFrames(pic_param, h) < 0)
-        return -1;
-    pic_param->picture_width_in_mbs_minus1                      = s->mb_width - 1;
-    pic_param->picture_height_in_mbs_minus1                     = s->mb_height - 1;
-    pic_param->bit_depth_luma_minus8                            = h->sps.bit_depth_luma - 8;
-    pic_param->bit_depth_chroma_minus8                          = h->sps.bit_depth_chroma - 8;
-    pic_param->num_ref_frames                                   = h->sps.ref_frame_count;
-    pic_param->seq_fields.value                                 = 0; /* reset all bits */
-    pic_param->seq_fields.bits.chroma_format_idc                = h->sps.chroma_format_idc;
-    pic_param->seq_fields.bits.residual_colour_transform_flag   = h->sps.residual_color_transform_flag; /* XXX: only for 4:4:4 high profile? */
-    pic_param->seq_fields.bits.gaps_in_frame_num_value_allowed_flag = h->sps.gaps_in_frame_num_allowed_flag;
-    pic_param->seq_fields.bits.frame_mbs_only_flag              = h->sps.frame_mbs_only_flag;
-    pic_param->seq_fields.bits.mb_adaptive_frame_field_flag     = h->sps.mb_aff;
-    pic_param->seq_fields.bits.direct_8x8_inference_flag        = h->sps.direct_8x8_inference_flag;
-    pic_param->seq_fields.bits.MinLumaBiPredSize8x8             = h->sps.level_idc >= 31; /* A.3.3.2 */
-    pic_param->seq_fields.bits.log2_max_frame_num_minus4        = h->sps.log2_max_frame_num - 4;
-    pic_param->seq_fields.bits.pic_order_cnt_type               = h->sps.poc_type;
-    pic_param->seq_fields.bits.log2_max_pic_order_cnt_lsb_minus4 = h->sps.log2_max_poc_lsb - 4;
-    pic_param->seq_fields.bits.delta_pic_order_always_zero_flag = h->sps.delta_pic_order_always_zero_flag;
-    pic_param->num_slice_groups_minus1                          = h->pps.slice_group_count - 1;
-    pic_param->slice_group_map_type                             = h->pps.mb_slice_group_map_type;
-    pic_param->slice_group_change_rate_minus1                   = 0; /* XXX: unimplemented in FFmpeg */
-    pic_param->pic_init_qp_minus26                              = h->pps.init_qp - 26;
-    pic_param->pic_init_qs_minus26                              = h->pps.init_qs - 26;
-    pic_param->chroma_qp_index_offset                           = h->pps.chroma_qp_index_offset[0];
-    pic_param->second_chroma_qp_index_offset                    = h->pps.chroma_qp_index_offset[1];
-    pic_param->pic_fields.value                                 = 0; /* reset all bits */
-    pic_param->pic_fields.bits.entropy_coding_mode_flag         = h->pps.cabac;
-    pic_param->pic_fields.bits.weighted_pred_flag               = h->pps.weighted_pred;
-    pic_param->pic_fields.bits.weighted_bipred_idc              = h->pps.weighted_bipred_idc;
-    pic_param->pic_fields.bits.transform_8x8_mode_flag          = h->pps.transform_8x8_mode;
-    pic_param->pic_fields.bits.field_pic_flag                   = s->picture_structure != PICT_FRAME;
-    pic_param->pic_fields.bits.constrained_intra_pred_flag      = h->pps.constrained_intra_pred;
-    pic_param->pic_fields.bits.pic_order_present_flag           = h->pps.pic_order_present;
-    pic_param->pic_fields.bits.deblocking_filter_control_present_flag = h->pps.deblocking_filter_parameters_present;
-    pic_param->pic_fields.bits.redundant_pic_cnt_present_flag   = h->pps.redundant_pic_cnt_present;
-    pic_param->pic_fields.bits.reference_pic_flag               = h->nal_ref_idc != 0;
-    pic_param->frame_num                                        = h->frame_num;
+		/* Fill in VAPictureParameterBufferH264. */
+		pic_param = ff_vaapi_alloc_pic_param(vactx, sizeof(VAPictureParameterBufferH264));
+		if (!pic_param)
+			return -1;
+		fill_vaapi_pic(&pic_param->CurrPic, s->current_picture_ptr, s->picture_structure);
+		if (fill_vaapi_ReferenceFrames(pic_param, h) < 0)
+			return -1;
+		pic_param->picture_width_in_mbs_minus1                      = s->mb_width - 1;
+		pic_param->picture_height_in_mbs_minus1                     = s->mb_height - 1;
+		pic_param->bit_depth_luma_minus8                            = h->sps.bit_depth_luma - 8;
+		pic_param->bit_depth_chroma_minus8                          = h->sps.bit_depth_chroma - 8;
+		pic_param->num_ref_frames                                   = h->sps.ref_frame_count;
+		pic_param->seq_fields.value                                 = 0; /* reset all bits */
+		pic_param->seq_fields.bits.chroma_format_idc                = h->sps.chroma_format_idc;
+		pic_param->seq_fields.bits.residual_colour_transform_flag   = h->sps.residual_color_transform_flag; /* XXX: only for 4:4:4 high profile? */
+		pic_param->seq_fields.bits.gaps_in_frame_num_value_allowed_flag = h->sps.gaps_in_frame_num_allowed_flag;
+		pic_param->seq_fields.bits.frame_mbs_only_flag              = h->sps.frame_mbs_only_flag;
+		pic_param->seq_fields.bits.mb_adaptive_frame_field_flag     = h->sps.mb_aff;
+		pic_param->seq_fields.bits.direct_8x8_inference_flag        = h->sps.direct_8x8_inference_flag;
+		pic_param->seq_fields.bits.MinLumaBiPredSize8x8             = h->sps.level_idc >= 31; /* A.3.3.2 */
+		pic_param->seq_fields.bits.log2_max_frame_num_minus4        = h->sps.log2_max_frame_num - 4;
+		pic_param->seq_fields.bits.pic_order_cnt_type               = h->sps.poc_type;
+		pic_param->seq_fields.bits.log2_max_pic_order_cnt_lsb_minus4 = h->sps.log2_max_poc_lsb - 4;
+		pic_param->seq_fields.bits.delta_pic_order_always_zero_flag = h->sps.delta_pic_order_always_zero_flag;
+		pic_param->num_slice_groups_minus1                          = h->pps.slice_group_count - 1;
+		pic_param->slice_group_map_type                             = h->pps.mb_slice_group_map_type;
+		pic_param->slice_group_change_rate_minus1                   = 0; /* XXX: unimplemented in FFmpeg */
+		pic_param->pic_init_qp_minus26                              = h->pps.init_qp - 26;
+		pic_param->pic_init_qs_minus26                              = h->pps.init_qs - 26;
+		pic_param->chroma_qp_index_offset                           = h->pps.chroma_qp_index_offset[0];
+		pic_param->second_chroma_qp_index_offset                    = h->pps.chroma_qp_index_offset[1];
+		pic_param->pic_fields.value                                 = 0; /* reset all bits */
+		pic_param->pic_fields.bits.entropy_coding_mode_flag         = h->pps.cabac;
+		pic_param->pic_fields.bits.weighted_pred_flag               = h->pps.weighted_pred;
+		pic_param->pic_fields.bits.weighted_bipred_idc              = h->pps.weighted_bipred_idc;
+		pic_param->pic_fields.bits.transform_8x8_mode_flag          = h->pps.transform_8x8_mode;
+		pic_param->pic_fields.bits.field_pic_flag                   = s->picture_structure != PICT_FRAME;
+		pic_param->pic_fields.bits.constrained_intra_pred_flag      = h->pps.constrained_intra_pred;
+		pic_param->pic_fields.bits.pic_order_present_flag           = h->pps.pic_order_present;
+		pic_param->pic_fields.bits.deblocking_filter_control_present_flag = h->pps.deblocking_filter_parameters_present;
+		pic_param->pic_fields.bits.redundant_pic_cnt_present_flag   = h->pps.redundant_pic_cnt_present;
+		pic_param->pic_fields.bits.reference_pic_flag               = h->nal_ref_idc != 0;
+		pic_param->frame_num                                        = h->frame_num;
 
-    /* Fill in VAIQMatrixBufferH264. */
-    iq_matrix = ff_vaapi_alloc_iq_matrix(vactx, sizeof(VAIQMatrixBufferH264));
-    if (!iq_matrix)
-        return -1;
-    memcpy(iq_matrix->ScalingList4x4, h->pps.scaling_matrix4, sizeof(iq_matrix->ScalingList4x4));
-    memcpy(iq_matrix->ScalingList8x8[0], h->pps.scaling_matrix8[0], sizeof(iq_matrix->ScalingList8x8[0]));
-    memcpy(iq_matrix->ScalingList8x8[1], h->pps.scaling_matrix8[3], sizeof(iq_matrix->ScalingList8x8[0]));
-    return 0;
+		/* Fill in VAIQMatrixBufferH264. */
+		iq_matrix = ff_vaapi_alloc_iq_matrix(vactx, sizeof(VAIQMatrixBufferH264));
+		if (!iq_matrix)
+			return -1;
+		memcpy(iq_matrix->ScalingList4x4, h->pps.scaling_matrix4, sizeof(iq_matrix->ScalingList4x4));
+		memcpy(iq_matrix->ScalingList8x8[0], h->pps.scaling_matrix8[0], sizeof(iq_matrix->ScalingList8x8[0]));
+		memcpy(iq_matrix->ScalingList8x8[1], h->pps.scaling_matrix8[3], sizeof(iq_matrix->ScalingList8x8[0]));
+	}
+	return 0;
 }
 
 /** End a hardware decoding based frame. */
 static int end_frame(AVCodecContext *avctx)
 {
 	// EDIT JB extract_H264Context
-	H264Context *h = extract_H264Context(avctx);
-	// H264Context *h = avctx->priv_data;
-	// END EDIT
+	H264Context *h;
+	int i, ret;
 
-    av_dlog(avctx, "end_frame()\n");
-    return ff_vaapi_common_end_frame(&h->s);
+	// H264Context *h = avctx->priv_data;
+	for(i = 0; i<MAX_VIEW_COUNT; i++){
+		ff_h264_extract_Context(avctx, &h, i);
+		// END EDIT
+
+		av_dlog(avctx, "end_frame()\n");
+		ret =  ff_vaapi_common_end_frame(&h->s);
+		if(ret < 0){
+			return ret;
+		}
+	}
+	return ret;
 }
 
 /** Decode the given H.264 slice with VA API. */
@@ -336,42 +347,47 @@ static int decode_slice(AVCodecContext *avctx,
                         uint32_t        size)
 {
 	// EDIT JB extract_H264Context
-	H264Context *h = extract_H264Context(avctx);
+	H264Context *h;
+	int i;
+
 	// H264Context *h = avctx->priv_data;
-	// END EDIT
-    MpegEncContext * const s = &h->s;
-    VASliceParameterBufferH264 *slice_param;
+	for(i = 0; i<MAX_VIEW_COUNT; i++){
+		MpegEncContext * const s = ff_h264_extract_Context(avctx, &h, i);
+		// END EDIT
 
-    av_dlog(avctx, "decode_slice(): buffer %p, size %d\n", buffer, size);
+		VASliceParameterBufferH264 *slice_param;
 
-    /* Fill in VASliceParameterBufferH264. */
-    slice_param = (VASliceParameterBufferH264 *)ff_vaapi_alloc_slice(avctx->hwaccel_context, buffer, size);
-    if (!slice_param)
-        return -1;
-    slice_param->slice_data_bit_offset          = get_bits_count(&h->s.gb) + 8; /* bit buffer started beyond nal_unit_type */
-    slice_param->first_mb_in_slice              = (s->mb_y >> FIELD_OR_MBAFF_PICTURE) * s->mb_width + s->mb_x;
-    slice_param->slice_type                     = ff_h264_get_slice_type(h);
-    slice_param->direct_spatial_mv_pred_flag    = h->slice_type == AV_PICTURE_TYPE_B ? h->direct_spatial_mv_pred : 0;
-    slice_param->num_ref_idx_l0_active_minus1   = h->list_count > 0 ? h->ref_count[0] - 1 : 0;
-    slice_param->num_ref_idx_l1_active_minus1   = h->list_count > 1 ? h->ref_count[1] - 1 : 0;
-    slice_param->cabac_init_idc                 = h->cabac_init_idc;
-    slice_param->slice_qp_delta                 = s->qscale - h->pps.init_qp;
-    slice_param->disable_deblocking_filter_idc  = h->deblocking_filter < 2 ? !h->deblocking_filter : h->deblocking_filter;
-    slice_param->slice_alpha_c0_offset_div2     = h->slice_alpha_c0_offset / 2 - 26;
-    slice_param->slice_beta_offset_div2         = h->slice_beta_offset     / 2 - 26;
-    slice_param->luma_log2_weight_denom         = h->luma_log2_weight_denom;
-    slice_param->chroma_log2_weight_denom       = h->chroma_log2_weight_denom;
+		av_dlog(avctx, "decode_slice(): buffer %p, size %d\n", buffer, size);
 
-    fill_vaapi_RefPicList(slice_param->RefPicList0, h->ref_list[0], h->list_count > 0 ? h->ref_count[0] : 0);
-    fill_vaapi_RefPicList(slice_param->RefPicList1, h->ref_list[1], h->list_count > 1 ? h->ref_count[1] : 0);
+		/* Fill in VASliceParameterBufferH264. */
+		slice_param = (VASliceParameterBufferH264 *)ff_vaapi_alloc_slice(avctx->hwaccel_context, buffer, size);
+		if (!slice_param)
+			return -1;
+		slice_param->slice_data_bit_offset          = get_bits_count(&h->s.gb) + 8; /* bit buffer started beyond nal_unit_type */
+		slice_param->first_mb_in_slice              = (s->mb_y >> FIELD_OR_MBAFF_PICTURE) * s->mb_width + s->mb_x;
+		slice_param->slice_type                     = ff_h264_get_slice_type(h);
+		slice_param->direct_spatial_mv_pred_flag    = h->slice_type == AV_PICTURE_TYPE_B ? h->direct_spatial_mv_pred : 0;
+		slice_param->num_ref_idx_l0_active_minus1   = h->list_count > 0 ? h->ref_count[0] - 1 : 0;
+		slice_param->num_ref_idx_l1_active_minus1   = h->list_count > 1 ? h->ref_count[1] - 1 : 0;
+		slice_param->cabac_init_idc                 = h->cabac_init_idc;
+		slice_param->slice_qp_delta                 = s->qscale - h->pps.init_qp;
+		slice_param->disable_deblocking_filter_idc  = h->deblocking_filter < 2 ? !h->deblocking_filter : h->deblocking_filter;
+		slice_param->slice_alpha_c0_offset_div2     = h->slice_alpha_c0_offset / 2 - 26;
+		slice_param->slice_beta_offset_div2         = h->slice_beta_offset     / 2 - 26;
+		slice_param->luma_log2_weight_denom         = h->luma_log2_weight_denom;
+		slice_param->chroma_log2_weight_denom       = h->chroma_log2_weight_denom;
 
-    fill_vaapi_plain_pred_weight_table(h, 0,
-                                       &slice_param->luma_weight_l0_flag,   slice_param->luma_weight_l0,   slice_param->luma_offset_l0,
-                                       &slice_param->chroma_weight_l0_flag, slice_param->chroma_weight_l0, slice_param->chroma_offset_l0);
-    fill_vaapi_plain_pred_weight_table(h, 1,
-                                       &slice_param->luma_weight_l1_flag,   slice_param->luma_weight_l1,   slice_param->luma_offset_l1,
-                                       &slice_param->chroma_weight_l1_flag, slice_param->chroma_weight_l1, slice_param->chroma_offset_l1);
-    return 0;
+		fill_vaapi_RefPicList(slice_param->RefPicList0, h->ref_list[0], h->list_count > 0 ? h->ref_count[0] : 0);
+		fill_vaapi_RefPicList(slice_param->RefPicList1, h->ref_list[1], h->list_count > 1 ? h->ref_count[1] : 0);
+
+		fill_vaapi_plain_pred_weight_table(h, 0,
+										   &slice_param->luma_weight_l0_flag,   slice_param->luma_weight_l0,   slice_param->luma_offset_l0,
+										   &slice_param->chroma_weight_l0_flag, slice_param->chroma_weight_l0, slice_param->chroma_offset_l0);
+		fill_vaapi_plain_pred_weight_table(h, 1,
+										   &slice_param->luma_weight_l1_flag,   slice_param->luma_weight_l1,   slice_param->luma_offset_l1,
+										   &slice_param->chroma_weight_l1_flag, slice_param->chroma_weight_l1, slice_param->chroma_offset_l1);
+	}
+	return 0;
 }
 
 AVHWAccel ff_h264_vaapi_hwaccel = {

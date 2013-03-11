@@ -65,23 +65,26 @@ static int decode_slice(AVCodecContext *avctx,
 static int end_frame(AVCodecContext *avctx)
 {
 	// EDIT JB extract_H264Context
-	H264Context *h = extract_H264Context(avctx);
+	H264Context *h;
+	int i, status;
+
 	// H264Context *h = avctx->priv_data;
-	// END EDIT
-    struct vda_context *vda_ctx = avctx->hwaccel_context;
-    AVFrame *frame = &h->s.current_picture_ptr->f;
-    int status;
+	for(i = 0; i<MAX_VIEW_COUNT; i++){
+		ff_h264_extract_Context(avctx, &h, i);
+		// END EDIT
+		struct vda_context *vda_ctx = avctx->hwaccel_context;
+		AVFrame *frame = &h->s.current_picture_ptr->f;
 
-    if (!vda_ctx->decoder || !vda_ctx->bitstream)
-        return -1;
+		if (!vda_ctx->decoder || !vda_ctx->bitstream)
+			return -1;
 
-    status = ff_vda_decoder_decode(vda_ctx, vda_ctx->bitstream,
-                                   vda_ctx->bitstream_size,
-                                   frame->reordered_opaque);
+		status = ff_vda_decoder_decode(vda_ctx, vda_ctx->bitstream,
+									   vda_ctx->bitstream_size,
+									   frame->reordered_opaque);
 
-    if (status)
-        av_log(avctx, AV_LOG_ERROR, "Failed to decode frame (%d)\n", status);
-
+		if (status)
+			av_log(avctx, AV_LOG_ERROR, "Failed to decode frame (%d)\n", status);
+	}
     return status;
 }
 

@@ -36,20 +36,67 @@ int min(int a, int b);
  */
 int max(int a, int b);
 
-/** EXTRACT H264Context
- *  Extracts H264Context out of AVCodecContext and initializes
- *  pointers and fields
+/** EXTRACT
+ * 	assigns H264Context* with view order index vOIdx to *h and returns MpegEncContext*.
+ *  Normal use case is:
+ *			MpegEncContext * const s = ff_h264_extract_Context(avctx, &h, i);
  *
- *  return the initialized context
+ *	vOIdx has to be in the range 0..MAX_VIEW_COUNT otherwise vOIdx = 0 is taken.
+ *
+ *  return MpegEncContext
  */
-void extract_H264Context(const AVCodecContext *avctx, H264Context *h[MAX_VIEW_COUNT]);
+MpegEncContext* ff_h264_extract_Context(const AVCodecContext * avctx, H264Context** h, int voidx);
 
 /** INIT H264Context
  * 	Does the same initialization then extract_H264Context()
  * 	without extracting H264Context out of AVCodecContext.
- *
  */
-void init_H264Context(H264Context *h, int view_id);
+void init_H264Context(H264Context *h);
+
+/** Adds the SPS to the buffer of each MVC context.
+ *
+ * 	If a SPS with same id exit, the old SPS is deleted and replaced.
+ * 	Depending on NAL unit type (NAL_SUB_SPS, NAL_SPS, NAL_SPS_EXT)
+ * 	the parameter set is put to sub_sps-buffer or sps_buffer.
+ *
+ * 	If the SPS is no sub SPS, it is activated.
+ *
+ *	@param h	pointer to the H264Context. WARNING: this context have to be a main and not a threaded context!
+ *	@param sps	pointer to the SPS, which should be stored in buffer.
+ *	@return  \li{Override: 1} \li{Success: 0} \li{Error: -1}
+ */
+int save_SPS(H264Context *h, SPS* sps);
+
+/** ACTIVATE SPS
+ * 	Activates the SPS.
+ * 	Depending on the current NAL unit type, the SPS is taken from the sps_buffer or the sub_sps_buffer.
+ *
+* 	@param h		pointer to the H264Context. !WARNING: this context have to be a main and not a threaded context!
+ *	@param sps_id	id of the SPS, which should be activated.
+ *	@return SPS*    \li{Success: the pointer to the activated SPS} \li{Error: 0}
+ */
+SPS* activate_SPS(H264Context *h, uint sps_id);
+
+/** Adds the PPS to the buffer of each MVC context.
+ *
+ * 	If a PPS with same id exit, the old PPS is deleted and replaced.
+ *
+ *	@param h		pointer to the H264Context. !WARNING: this context have to be a main and not a threaded context!
+ *	@param pps		pointer to the PPS, which should be stored in buffer.
+ *	@param pps_id	id of the PPS. (necessary, since PPS does not store their own id)
+ *	@return  		\li{Override: 1} \li{Success: 0} \li{Error: -1}
+ */
+int save_PPS(H264Context *h, PPS* pps, uint pps_id);
+
+/** ACTIVATE PPS
+ * 	Activates the PPS from pps_buffer and the SPS with id = pps.sps_id.
+ * 	For SPS activation @see activate_SPS() is used.
+ *
+ * 	@param h		pointer to the H264Context. !WARNING: this context have to be a main and not a threaded context!
+ *	@param pps_id	id of the PPS. (necessary, since PPS does not store their own id)
+ *	@return PPS*    \li{Success: the pointer to the activated PPS} \li{Error: 0}
+ */
+PPS* activate_PPS(H264Context *h, uint pps_id);
 
 // ==================================================================== //
 //  							CLAUSES									//

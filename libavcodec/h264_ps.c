@@ -30,6 +30,7 @@
 #include "dsputil.h"
 #include "avcodec.h"
 #include "h264.h"
+//#include "h264_mvc.h"
 #include "h264data.h" //FIXME FIXME FIXME (just for zigzag_scan)
 #include "golomb.h"
 
@@ -466,6 +467,12 @@ int ff_h264_decode_seq_parameter_set(H264Context *h) {
 	// EDIT for MVC support
 	// JB sub_sps_buffer
 	// @author: Jochen Britz
+	// if( save_SPS(h, sps) < 0 ){
+	// 	return -1;
+	// }
+	// if(sps->is_sub_sps){
+	// 	return sps_id;
+	// }
 	if(h->nal_unit_type == NAL_SUB_SPS){
 		av_free(h->sub_sps_buffers[sps_id]);
 		sps->is_sub_sps = 1;
@@ -481,7 +488,6 @@ int ff_h264_decode_seq_parameter_set(H264Context *h) {
 		h->sps_buffers[sps_id] = sps;
 		h->sps = *sps;
 	}
-
 	// av_free(h->sps_buffers[sps_id]);
 	// h->sps_buffers[sps_id] = sps;
 	// h->sps = *sps;
@@ -714,8 +720,13 @@ int ff_h264_decode_picture_parameter_set(H264Context *h, int bit_length) {
 				pps->transform_8x8_mode ? "8x8DCT" : "");
 	}
 
+	// EDIT JB save PPS to all MVC_Contexts.
+	// if(save_PPS(h,pps,pps_id)<0){
+	// 	goto fail;
+	// }
 	av_free(h->pps_buffers[pps_id]);
 	h->pps_buffers[pps_id] = pps;
+	// END EDIT
 	return 0;
 	fail: av_free(pps);
 	return -1;

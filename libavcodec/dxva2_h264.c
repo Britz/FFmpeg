@@ -197,10 +197,7 @@ static void fill_slice_short(DXVA_Slice_H264_Short *slice,
 static void fill_slice_long(AVCodecContext *avctx, DXVA_Slice_H264_Long *slice,
                             unsigned position, unsigned size)
 {
-	// EDIT JB extract_H264Context
-	const H264Context *h = extract_H264Context(avctx);
-	// cont H264Context *h = avctx->priv_data;
-	// END EDIT
+	H264Context *h = avctx->priv_data;
     struct dxva_context *ctx = avctx->hwaccel_context;
     const MpegEncContext *s = &h->s;
     unsigned list;
@@ -278,11 +275,8 @@ static int commit_bitstream_and_slice_buffer(AVCodecContext *avctx,
                                              DXVA2_DecodeBufferDesc *bs,
                                              DXVA2_DecodeBufferDesc *sc)
 {
-	// EDIT JB extract_H264Context
-	const H264Context *h = extract_H264Context(avctx);
-	// cont H264Context *h = avctx->priv_data;
-	// END EDIT
-    const MpegEncContext *s = &h->s;
+	H264Context *h = avctx->priv_data;
+	const MpegEncContext *s = &h->s;
     const unsigned mb_count = s->mb_width * s->mb_height;
     struct dxva_context *ctx = avctx->hwaccel_context;
     const Picture *current_picture = h->s.current_picture_ptr;
@@ -379,11 +373,8 @@ static int start_frame(AVCodecContext *avctx,
                        av_unused const uint8_t *buffer,
                        av_unused uint32_t size)
 {
-	// EDIT JB extract_H264Context
-	const H264Context *h = extract_H264Context(avctx);
-	// cont H264Context *h = avctx->priv_data;
-	// END EDIT
-    struct dxva_context *ctx = avctx->hwaccel_context;
+	H264Context *h = avctx->priv_data;
+	struct dxva_context *ctx = avctx->hwaccel_context;
     struct dxva2_picture_context *ctx_pic = h->s.current_picture_ptr->f.hwaccel_picture_private;
 
     if (!ctx->decoder || !ctx->cfg || ctx->surface_count <= 0)
@@ -405,12 +396,8 @@ static int start_frame(AVCodecContext *avctx,
 static int decode_slice(AVCodecContext *avctx,
                         const uint8_t *buffer, uint32_t size)
 {
-	// EDIT JB extract_H264Context
-	const H264Context *h = extract_H264Context(avctx);
-	// cont H264Context *h = avctx->priv_data;
-	// END EDIT
-
-    struct dxva_context *ctx = avctx->hwaccel_context;
+	H264Context *h = avctx->priv_data;
+	struct dxva_context *ctx = avctx->hwaccel_context;
     const Picture *current_picture = h->s.current_picture_ptr;
     struct dxva2_picture_context *ctx_pic = current_picture->f.hwaccel_picture_private;
     unsigned position;
@@ -438,10 +425,7 @@ static int decode_slice(AVCodecContext *avctx,
 
 static int end_frame(AVCodecContext *avctx)
 {
-	// EDIT JB extract_H264Context
-	H264Context *h = extract_H264Context(avctx);
-	// H264Context *h = avctx->priv_data;
-	// END EDIT
+	H264Context *h = avctx->priv_data;
     MpegEncContext *s = &h->s;
     struct dxva2_picture_context *ctx_pic =
         h->s.current_picture_ptr->f.hwaccel_picture_private;
