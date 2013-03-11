@@ -416,7 +416,7 @@ static Picture * remove_short(H264Context *h, int frame_num, int ref_mask){
     pic = find_short(h, frame_num, &i);
     if (pic){
         if(unreference_pic(h, pic, ref_mask))
-        remove_short_at_index(h, i);
+        	remove_short_at_index(h, i);
     }
 
     return pic;
@@ -633,7 +633,7 @@ int ff_h264_execute_ref_pic_marking(H264Context *h, MMCO *mmco, int mmco_count){
 			if(h->inter_view_flag){
 				s->current_picture_ptr->view_id = h->view_id;
 				h->inter_view_ref_list[h->view_id] = s->current_picture_ptr;
-				s->current_picture_ptr->f.reference |= INTER_PIC_REF;
+				//s->current_picture_ptr->f.reference |= INTER_PIC_REF;
 			}
 			h->short_ref_count++;
 			s->current_picture_ptr->f.reference |= s->picture_structure;
