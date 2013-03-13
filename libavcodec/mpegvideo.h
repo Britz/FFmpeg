@@ -719,6 +719,15 @@ typedef struct MpegEncContext {
     // END EDIT
 } MpegEncContext;
 
+// JB View ID in Picture
+// EDIT for MVC support
+// @author: Jochen Britz
+
+int ff_mpeg_update_thread_context_intern(AVCodecContext *avctx, MpegEncContext *s,
+	                                  const MpegEncContext *s1);
+//END EDIT
+
+
 #define REBASE_PICTURE(pic, new_ctx, old_ctx) (pic ? \
     (pic >= old_ctx->picture && pic < old_ctx->picture+old_ctx->picture_count ?\
         &new_ctx->picture[pic - old_ctx->picture] : pic - (Picture*)old_ctx + (Picture*)new_ctx)\

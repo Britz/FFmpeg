@@ -43,12 +43,22 @@ MpegEncContext* ff_h264_extract_Context(const AVCodecContext * avctx, H264Contex
 		(*h)->voidx = voidx;
 		//av_log((*h)->s.avctx, AV_LOG_INFO,"ff_h264_extract_Context: H264Context[%d] extracted.\n", voidx);
 	}
-	init_H264Context(*h);
+	init_H264Context(avctx, *h);
 	return &(*h)->s;
 }
 
-void init_H264Context(H264Context *h){
-	// ATM nothing has to be initialised
+MpegEncContext* ff_h264_get_MpegEncContext(H264Context *h){
+	if(h->mvc_context[0]){
+		return &h->mvc_context[0]->s;
+	}else{
+		return &h->s;
+	}
+}
+
+void init_H264Context(const AVCodecContext * avctx, H264Context *h){
+	if(!h->s.avctx){
+		h->s.avctx = avctx;
+	}
 }
 
 
@@ -66,7 +76,6 @@ int save_PPS(H264Context *h, PPS* pps, uint pps_id){
 	h->mvc_context[0]->pps_buffers[pps_id] = pps;
 	return ret;
 }
-
 
 int save_SPS(H264Context *h, SPS* sps){
 	int  ret = 0;
@@ -921,7 +930,6 @@ void ff_h264_mvc_decode_nal_header(H264Context *h, const uint8_t *src) {
 		//	av_log(h->s.avctx, AV_LOG_DEBUG,
 		//			"MVC extension NAL unit with type: %d recieved \n",
 		//			h->nal_unit_type);
-		init_H264Context(h);
 	}
 }
 

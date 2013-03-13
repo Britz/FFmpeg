@@ -1237,19 +1237,18 @@ int ff_h264_decode_extradata(H264Context *h, const uint8_t *buf, int size)
 
 av_cold int ff_h264_decode_init(AVCodecContext *avctx) {
 	H264Context *h, *h0 = 0;
-	int i,j;
-	i = j = 0;
+	int i, view_id;
 	// H264Context *h = avctx->priv_data;
 
-	for(i = 0; i<MAX_VIEW_COUNT; i++){
+	for(view_id = 0; view_id<MAX_VIEW_COUNT; view_id++){
 
-	MpegEncContext * const s = ff_h264_extract_Context(avctx, &h, i);
+		MpegEncContext * const s = ff_h264_extract_Context(avctx, &h, view_id);
 
-		if(i == 0){
+		if(view_id == 0){
 			h0 = h;
 		}
 
-		h0->mvc_context[i] = h;
+		h0->mvc_context[view_id] = h;
 		// END EDIT
 
 
@@ -1264,8 +1263,8 @@ av_cold int ff_h264_decode_init(AVCodecContext *avctx) {
 		/* set defaults */
 		// s->decode_mb = ff_h263_decode_mb;
 		s->quarter_sample = 1;
-    if (!avctx->has_b_frames)
-        s->low_delay = 1;
+		if (!avctx->has_b_frames)
+			s->low_delay = 1;
 
 		avctx->chroma_sample_location = AVCHROMA_LOC_LEFT;
 
@@ -1276,8 +1275,8 @@ av_cold int ff_h264_decode_init(AVCodecContext *avctx) {
 
 		h->thread_context[0] = h;
 		h->outputed_poc = h->next_outputed_poc = INT_MIN;
-    for (i = 0; i < MAX_DELAYED_PIC_COUNT; i++)
-        h->last_pocs[i] = INT_MIN;
+		for (i = 0; i < MAX_DELAYED_PIC_COUNT; i++)
+			h->last_pocs[i] = INT_MIN;
 		h->prev_poc_msb = 1 << 16;
 		h->prev_frame_num = -1;
 		h->x264_build = -1;
@@ -1287,22 +1286,23 @@ av_cold int ff_h264_decode_init(AVCodecContext *avctx) {
             s->avctx->time_base.den *= 2;
 			avctx->ticks_per_frame = 2;
 		}
-	
-    if (avctx->extradata_size > 0 && avctx->extradata &&
-        ff_h264_decode_extradata(h, avctx->extradata, avctx->extradata_size) < 0) {
-        ff_h264_free_context(h);
+
+		// decode extra data only once
+		if (view_id == 0 && avctx->extradata_size > 0 && avctx->extradata &&
+			ff_h264_decode_extradata(h, avctx->extradata, avctx->extradata_size) < 0) {
+			ff_h264_free_context(h);
 			return -1;
 		}
 
-    if (h->sps.bitstream_restriction_flag &&
-        s->avctx->has_b_frames < h->sps.num_reorder_frames) {
+		if (h->sps.bitstream_restriction_flag &&
+				s->avctx->has_b_frames < h->sps.num_reorder_frames) {
 			s->avctx->has_b_frames = h->sps.num_reorder_frames;
 			s->low_delay = 0;
 		}
 	}
-	for(i = 0; i<MAX_VIEW_COUNT; i++){
-		ff_h264_extract_Context(avctx, &h, i);
-		if(i != 0){
+	for(view_id = 1; view_id<MAX_VIEW_COUNT; view_id++){
+		ff_h264_extract_Context(avctx, &h, view_id);
+		if(view_id != 0){
 			memcpy(h->mvc_context, h0->mvc_context, sizeof(h0->mvc_context));
 		}
 	}
@@ -1343,7 +1343,8 @@ static void copy_parameter_set(void **to, void **from, int count, int size)
 
 static int decode_init_thread_copy(AVCodecContext *avctx)
 {
-    H264Context *h = avctx->priv_data;
+
+    H264Context *h;
     int i;
 	// H264Context *h = avctx->priv_data;
 	for(i = 0; i<MAX_VIEW_COUNT; i++){
@@ -1368,8 +1369,11 @@ static int decode_update_thread_context(AVCodecContext *dst, const AVCodecContex
 	H264Context *h, *h1;
 	int view_id = 0, err;
 
-	//for(view_id = 0; view_id<MAX_VIEW_COUNT; view_id++){
-		MpegEncContext * const s = ff_h264_extract_Context(dst, &h, view_id);
+	if (dst == src)
+		return 0;
+
+	for(view_id = 0; view_id<MAX_VIEW_COUNT; view_id++){
+		MpegEncContext * s = ff_h264_extract_Context(dst, &h, view_id);
 		MpegEncContext * const s1 = ff_h264_extract_Context(src, &h1, view_id);
 
 		// H264Context *h = dst->priv_data, *h1 = src->priv_data;
@@ -1377,10 +1381,9 @@ static int decode_update_thread_context(AVCodecContext *dst, const AVCodecContex
 		// END EDIT
 		int inited = s->context_initialized;
 	    int i;
-		if (dst == src) 
-			return 0;
 
-		err = ff_mpeg_update_thread_context(dst, src);
+
+		err = ff_mpeg_update_thread_context_intern(dst, s, s1);
     	if (err)
         	return err;
 
@@ -1487,7 +1490,7 @@ static int decode_update_thread_context(AVCodecContext *dst, const AVCodecContex
 		h->prev_frame_num_offset = h->frame_num_offset;
 		h->prev_frame_num = h->frame_num;
 		h->outputed_poc = h->next_outputed_poc;
-	//}
+	}
 	return err;
 }
 
@@ -3239,7 +3242,7 @@ static int decode_slice_header(H264Context *h, H264Context *h0)
 				c->cur_chroma_format_idc = h->cur_chroma_format_idc;
 				// EDIT JB initialize threaded H246Context hx in terms of MVC
 				c->view_id = h->view_id;
-				init_H264Context(c);		
+				init_H264Context(s->avctx, c);
 				// END EDIT
 				init_scan_tables(c);
 				clone_tables(c, h, i);
@@ -5151,10 +5154,10 @@ av_cold void ff_h264_free_context(H264Context *h) {
 static av_cold int h264_decode_end(AVCodecContext *avctx) {
 	// EDIT JB extract_Context
 	H264Context *h;
-	//int i= 0;
+	int i= 0;
 
 	// H264Context *h = avctx->priv_data;
-	//for(i = 0; i<MAX_VIEW_COUNT; i++){
+	for(i = 0; i<MAX_VIEW_COUNT; i++){
 		MpegEncContext * const s = ff_h264_extract_Context(avctx, &h, 0);
 		// END EDIT
 
@@ -5163,7 +5166,7 @@ static av_cold int h264_decode_end(AVCodecContext *avctx) {
 		ff_h264_free_context(h);
 
 		ff_MPV_common_end(s);
-	//}
+	}
 	// memset(h, 0, sizeof(H264Context));
 
 	return 0;
@@ -5518,7 +5521,7 @@ int ff_h264_svc_decode_slice_header_threaded(H264Context *h, H264Context *h0) {
 				c->cur_chroma_format_idc = h->cur_chroma_format_idc;
 				// EDIT JB initialize threaded H246Context hx in terms of MVC
 				c->view_id = h->view_id;
-				init_H264Context(c);
+				init_H264Context(s->avctx, c);
 				// END EDIT
 				init_scan_tables(c);
 				clone_tables(c, h, i);

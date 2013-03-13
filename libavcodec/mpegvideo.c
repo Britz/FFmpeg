@@ -524,20 +524,28 @@ void ff_update_duplicate_context(MpegEncContext *dst, MpegEncContext *src)
     // about 10k cycles / 0.01 sec for  1000frames on 1ghz with 2 threads
 }
 
+
+
 int ff_mpeg_update_thread_context(AVCodecContext *dst,
                                   const AVCodecContext *src)
 {
-    MpegEncContext *s = dst->priv_data, *s1 = src->priv_data;
+	if (dst == src)
+		return 0;
 
-    if (dst == src)
-        return 0;
+	return ff_mpeg_update_thread_context_intern(dst, dst->priv_data, src->priv_data);
+}
 
+
+int ff_mpeg_update_thread_context_intern(AVCodecContext *avctx, MpegEncContext *dst,
+	                                  const MpegEncContext *src)
+	{
+	MpegEncContext *s = dst, *s1 = src;
     // FIXME can parameters change on I-frames?
     // in that case dst may need a reinit
     if (!s->context_initialized) {
         memcpy(s, s1, sizeof(MpegEncContext));
 
-        s->avctx                 = dst;
+        s->avctx                 = avctx;
         s->bitstream_buffer      = NULL;
         s->bitstream_buffer_size = s->allocated_bitstream_buffer_size = 0;
 
