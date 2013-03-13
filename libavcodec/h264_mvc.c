@@ -53,102 +53,120 @@ void init_H264Context(H264Context *h){
 
 
 int save_PPS(H264Context *h, PPS* pps, uint pps_id){
-	int i, ret = 0;
-	i = h->voidx;
+	int ret = 0;
+
 	if(pps_id > MAX_PPS_COUNT){
 		av_log(h->s.avctx, AV_LOG_ERROR, "pps_id (%u) out of range [0..%d]\n", pps_id, MAX_PPS_COUNT);
 		return -1;
 	}
-	if(h->mvc_context[i]->pps_buffers[pps_id]){
+	if(h->mvc_context[0]->pps_buffers[pps_id]){
 		av_free(h->pps_buffers[pps_id]);
 		ret = 1;
 	}
-	h->mvc_context[i]->pps_buffers[pps_id] = pps;
+	h->mvc_context[0]->pps_buffers[pps_id] = pps;
 	return ret;
 }
 
 
 int save_SPS(H264Context *h, SPS* sps){
-	int i, ret = 0;
-	i = h->voidx;
+	int  ret = 0;
 	if(h->nal_unit_type == NAL_SUB_SPS){
 		sps->is_sub_sps = 1;
-		if(h->mvc_context[i]->sub_sps_buffers[sps->id]){
+		if(h->mvc_context[0]->sub_sps_buffers[sps->id]){
 			av_free(h->sub_sps_buffers[sps->id]);
 			ret = 1;
 		}
-		h->mvc_context[i]->sub_sps_buffers[sps->id] = sps;
+		h->mvc_context[0]->sub_sps_buffers[sps->id] = sps;
 		/* Do not automatically activate SPS.
 		   Subset SPS are activated through MVC SEI messages
 		   or NAL units with type 20. (NAL_EXT_SLICE) */
 	}else if(h->nal_unit_type ==NAL_SPS || h->nal_unit_type == NAL_SPS_EXT){
 		sps->is_sub_sps = 0;
-		if(h->mvc_context[i]->sps_buffers[sps->id]){
+		if(h->mvc_context[0]->sps_buffers[sps->id]){
 			av_free(h->sps_buffers[sps->id]);
 			ret = 1;
 		}
-		h->mvc_context[i]->sps_buffers[sps->id] = sps;
+		h->mvc_context[0]->sps_buffers[sps->id] = sps;
 		// activate SPS
-		h->mvc_context[i]->sps = *sps;
+		h->mvc_context[0]->sps = *sps;
 	}else{
 		return -1;
 	}
 	return ret;
 }
 
-SPS* activate_SPS(H264Context *h, uint sps_id){
-	H264Context *h0 = h->mvc_context[0];
+SPS* get_SPS(H264Context *h0, H264Context *h, uint sps_id, int activate_it){
+	H264Context *h_mvc0 = h0->mvc_context[0];
+	SPS *sps = 0;
 	if (h->nal_unit_type == NAL_EXT_SLICE) { // MVC slice -> use sub_sps_buffer
 		if(h->sps.id == sps_id && h->sps.is_sub_sps){
 			return &h->sps;
 		}
-		if(!h0->sub_sps_buffers[sps_id]) {
+		if(!h_mvc0->sub_sps_buffers[sps_id]) {
 			av_log(h->s.avctx, AV_LOG_ERROR,
 					"Non-existing subset SPS (%u) referenced, try SPS instead.\n", sps_id);
 			// Try normal sps buffer
-			if (!h0->sps_buffers[sps_id]) {
+			if (!h_mvc0->sps_buffers[sps_id]) {
 				av_log(h->s.avctx, AV_LOG_ERROR,
 						"Non-existing subset SPS (%u) referenced, also SPS (%u) is non-existing.\n",
 						sps_id, sps_id);
 				return 0;
 			}
-			h->sps = *h0->sps_buffers[sps_id];
+			sps = h_mvc0->sps_buffers[sps_id];
 			av_log(h->s.avctx, AV_LOG_ERROR, "SPS (%u) activated.\n", sps_id);
 		}
-		h->sps = *h0->sub_sps_buffers[sps_id];
-		av_log(h->s.avctx, AV_LOG_ERROR, "Sub SPS (%u) activated.\n", sps_id);
+		sps = h_mvc0->sub_sps_buffers[sps_id];
+		av_log(h->s.avctx, AV_LOG_ERROR, "Subset SPS (%u) activated.\n", sps_id);
 	} else {  // normal slice -> use sps_buffer
 		if(h->sps.id == sps_id && !h->sps.is_sub_sps){
 			return &h->sps;
 		}
-		if (!h0->sps_buffers[sps_id]) {
-			av_log(h->s.avctx, AV_LOG_ERROR, "Non-existing SPS (%u) referenced.\n", sps_id);
-			return 0;
+		if (!h_mvc0->sps_buffers[sps_id]) {
+			av_log(h->s.avctx, AV_LOG_ERROR, "Non-existing SPS (%u) referenced, try subset SPS instead.\n", sps_id);
+			// Try normal sps buffer
+			if (!h_mvc0->sub_sps_buffers[sps_id]) {
+				av_log(h->s.avctx, AV_LOG_ERROR,
+						"Non-existing SPS (%u) referenced, also subset SPS (%u) is non-existing.\n",
+						sps_id, sps_id);
+				return 0;
+			}
+			sps = h_mvc0->sub_sps_buffers[sps_id];
+			av_log(h->s.avctx, AV_LOG_ERROR, "Subset SPS (%u) activated.\n", sps_id);
 		}
-		h->sps = *h0->sps_buffers[sps_id];
+		sps = h_mvc0->sps_buffers[sps_id];
 		av_log(h->s.avctx, AV_LOG_ERROR, "SPS (%u) activated.\n", sps_id);
 	}
-	return &h->sps;
+	if(activate_it){
+		h0->sps = *sps;
+		if(h != h0){
+			h->sps = h0->sps;
+		}
+		return &h->sps;
+	}
+	return sps;
 }
 
-PPS* activate_PPS(H264Context *h, uint pps_id){
-	H264Context *h0 = h->mvc_context[0];
+PPS* get_PPS(H264Context *h0, H264Context *h, uint pps_id, int activate_it){
+	H264Context *h_mvc0 = h->mvc_context[0];
+	PPS *pps = 0;
 	if (pps_id >= MAX_PPS_COUNT) {
 		av_log(h->s.avctx, AV_LOG_ERROR, "pps_id %u out of range\n", pps_id);
 		return 0;
 	}
-	if (!h0->pps_buffers[pps_id]) {
+	if (!h_mvc0->pps_buffers[pps_id]) {
 		av_log(h->s.avctx, AV_LOG_ERROR, "Non-existing PPS (%u) referenced.\n", pps_id);
 		return 0;
 	}
+	pps = h_mvc0->pps_buffers[pps_id];
+	if(activate_it){
+		h0->pps = *pps;
 
-	h->pps = *h0->pps_buffers[pps_id];
-
-	if(!activate_SPS(h ,h->pps.sps_id)){
-		//av_log(h->s.avctx, AV_LOG_ERROR, "");
+		if(h != h0){
+			h->pps = h0->pps;
+		}
+		return &h->pps;
 	}
-	h->sps.pps_id = pps_id;
-	return &h->pps;
+	return pps;
 }
 
 /** 7.3.2.1.2 */
@@ -342,27 +360,16 @@ int ff_h264_decode_slice_header(H264Context *h) {
 
 	pps_id = get_ue_golomb(&s->gb);
 
-	pps = h->pps_buffers[pps_id];
-	if(!pps){
-		av_log(h->s.avctx, AV_LOG_ERROR, "PPS (%d) out of range while decoding SVC slice header\n", pps_id);
+	// activate SPS and PPS in H264Context
+	pps = get_PPS(h, h,pps_id, 1);
+	sps = get_SPS(h, h ,h->pps.sps_id, 1);
+	if(!sps || !pps ){
+		av_log(h->s.avctx, AV_LOG_ERROR, "required PPS or SPS does not exist");
 		return -1;
 	}
-	if (!h->sub_sps_buffers[pps->sps_id]) {
-		av_log(h->s.avctx, AV_LOG_ERROR, "Subset SPS (%d) out of range while decoding SVC slice header (%d), try SPS instead.\n", pps->sps_id, pps_id);
-		// Try normal sps
-		if (!h->sps_buffers[pps->sps_id]) {
-			av_log(h->s.avctx, AV_LOG_ERROR, "Subset SPS and SPS (%d) out of range while decoding SVC slice header (%d).\n", pps->sps_id, pps_id);
-			return -1;
-		}
-		sps = h->sps_buffers[pps->sps_id];
-	}
-	sps = h->sub_sps_buffers[pps->sps_id];
+	// set previous parsed values
 	sps->pps_id = pps_id;
 	sps->first_mb_in_slice = first_mb_in_slice;
-
-	// activate SPS and PPS in H264Context
-	h->sps = *sps;
-	h->pps = *pps;
 
 	if( sps->residual_color_transform_flag == 1 ){
 		sps->colour_plane_id = get_bits(&s->gb, 2);
@@ -703,27 +710,14 @@ int ff_h264_svc_decode_slice_header(H264Context *h) {
 	h->slice_type_nos = slice_type & 3;
 
 	pps_id = get_ue_golomb(&s->gb);
-	pps = h->pps_buffers[pps_id];
-	if(!pps){
-		av_log(h->s.avctx, AV_LOG_ERROR, "PPS (%d) out of range while decoding SVC slice header\n", pps_id);
-		return -1;
-	}
-	if (!h->sub_sps_buffers[pps->sps_id]) {
-		av_log(h->s.avctx, AV_LOG_ERROR, "Subset SPS (%d) out of range while decoding SVC slice header (%d), try SPS instead.\n", pps->sps_id, pps_id);
-		// Try normal sps
-		if (!h->sps_buffers[pps->sps_id]) {
-			av_log(h->s.avctx, AV_LOG_ERROR, "Subset SPS and SPS (%d) out of range while decoding SVC slice header (%d).\n", pps->sps_id, pps_id);
-			return -1;
-		}
-		sps = h->sps_buffers[pps->sps_id];
-	}
-	sps = h->sub_sps_buffers[pps->sps_id];
+
+	// activate SPS and PPS in H264Context
+	pps = get_PPS(h, h,pps_id, 1);
+	sps = get_SPS(h, h ,h->pps.sps_id, 1);
+	// set previous parsed values
 	sps->pps_id = pps_id;
 	sps->first_mb_in_slice = first_mb_in_slice;
 
-	// activate SPS and PPS in H264Context
-	h->sps = *sps;
-	h->pps = *pps;
 
 	chromaArrayType = ff_h264_chroma_array_type(h, sps);
 

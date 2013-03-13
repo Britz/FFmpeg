@@ -30,7 +30,7 @@
 #include "dsputil.h"
 #include "avcodec.h"
 #include "h264.h"
-//#include "h264_mvc.h"
+#include "h264_mvc.h"
 #include "h264data.h" //FIXME FIXME FIXME (just for zigzag_scan)
 #include "golomb.h"
 
@@ -473,20 +473,23 @@ int ff_h264_decode_seq_parameter_set(H264Context *h) {
 	// if(sps->is_sub_sps){
 	// 	return sps_id;
 	// }
-	if(h->nal_unit_type == NAL_SUB_SPS){
-		av_free(h->sub_sps_buffers[sps_id]);
-		sps->is_sub_sps = 1;
-		h->sub_sps_buffers[sps_id] = sps;
-		return sps_id;
-		//h->sps = *sps;
-			/* Do not automatically activate SPS.
-			   Subset SPS are activated through MVC SEI messages
-		  	   or NAL units with type 20. (NAL_EXT_SLICE) */
-	}else{
-		av_free(h->sps_buffers[sps_id]);
-		sps->is_sub_sps = 0;
-		h->sps_buffers[sps_id] = sps;
-		h->sps = *sps;
+//	if(h->nal_unit_type == NAL_SUB_SPS){
+//		av_free(h->sub_sps_buffers[sps_id]);
+//		sps->is_sub_sps = 1;
+//		h->sub_sps_buffers[sps_id] = sps;
+//		return sps_id;
+//		//h->sps = *sps;
+//			/* Do not automatically activate SPS.
+//			   Subset SPS are activated through MVC SEI messages
+//		  	   or NAL units with type 20. (NAL_EXT_SLICE) */
+//	}else{
+//		av_free(h->sps_buffers[sps_id]);
+//		sps->is_sub_sps = 0;
+//		h->sps_buffers[sps_id] = sps;
+//		h->sps = *sps;
+//	}
+	if(save_SPS(h, sps)<0){
+		goto fail;
 	}
 	// av_free(h->sps_buffers[sps_id]);
 	// h->sps_buffers[sps_id] = sps;
@@ -573,25 +576,33 @@ int ff_h264_decode_picture_parameter_set(H264Context *h, int bit_length) {
 	// EDIT for MVC support
 	// JB ff_h264_decode_picture_parameter_set (SPS and SUB_SPS)
 	// @author: Jochen Britz
-	if(h->nal_unit_type == NAL_EXT_SLICE){
-		if (!h->sub_sps_buffers[h->pps.sps_id]) {
-			av_log(h->s.avctx, AV_LOG_ERROR, "Subset SPS (%d) out of range while decoding PPS (%d), try SPS instead.\n", pps->sps_id, pps_id);
-			// return -1;
-			// Try normal sps
-			if (!h->sps_buffers[h->pps.sps_id]) {
-				av_log(h->s.avctx, AV_LOG_ERROR, "Subset SPS and SPS (%d) out of range while decoding PPS (%d).\n", pps->sps_id, pps_id);
-				goto fail;
-			}
-			sps = h->sps_buffers[h->pps.sps_id];
-		}
-		sps = h->sub_sps_buffers[h->pps.sps_id];
-	}else{
-		if (!h->sps_buffers[h->pps.sps_id]) {
-			av_log(h->s.avctx, AV_LOG_ERROR, "SPS (%d) out of range while decoding PPS (%d).\n", pps->sps_id, pps_id);
-			goto fail;
-		}
-		sps = h->sps_buffers[h->pps.sps_id];
+//	if(h->nal_unit_type == NAL_EXT_SLICE){
+//		if (!h->sub_sps_buffers[h->pps.sps_id]) {
+//			av_log(h->s.avctx, AV_LOG_ERROR, "Subset SPS (%d) out of range while decoding PPS (%d), try SPS instead.\n", pps->sps_id, pps_id);
+//			// return -1;
+//			// Try normal sps
+//			if (!h->sps_buffers[h->pps.sps_id]) {
+//				av_log(h->s.avctx, AV_LOG_ERROR, "Subset SPS and SPS (%d) out of range while decoding PPS (%d).\n", pps->sps_id, pps_id);
+//				goto fail;
+//			}
+//			sps = h->sps_buffers[h->pps.sps_id];
+//		}
+//		sps = h->sub_sps_buffers[h->pps.sps_id];
+//	}else{
+//		if (!h->sps_buffers[h->pps.sps_id]) {
+//			av_log(h->s.avctx, AV_LOG_ERROR, "SPS (%d) out of range while decoding PPS (%d).\n", pps->sps_id, pps_id);
+//			goto fail;
+//		}
+//		sps = h->sps_buffers[h->pps.sps_id];
+//	}
+	// activate SPS and PPS in H264Context
+	sps = get_SPS(h, h ,pps->sps_id, 0);
+	if(!sps){
+		av_log(h->s.avctx, AV_LOG_ERROR, "SPS (%d) out of range while decoding PPS (%d).\n", pps->sps_id, pps_id);
+		goto fail;
 	}
+	// set previous parsed values
+	sps->pps_id = pps_id;
 	// END EDIT
 	// if ((unsigned) pps->sps_id >= MAX_SPS_COUNT
 	//		|| h->sps_buffers[pps->sps_id] == NULL ) {
@@ -721,11 +732,11 @@ int ff_h264_decode_picture_parameter_set(H264Context *h, int bit_length) {
 	}
 
 	// EDIT JB save PPS to all MVC_Contexts.
-	// if(save_PPS(h,pps,pps_id)<0){
-	// 	goto fail;
-	// }
-	av_free(h->pps_buffers[pps_id]);
-	h->pps_buffers[pps_id] = pps;
+	if(save_PPS(h,pps,pps_id)<0){
+		 goto fail;
+	}
+	//av_free(h->pps_buffers[pps_id]);
+	//h->pps_buffers[pps_id] = pps;
 	// END EDIT
 	return 0;
 	fail: av_free(pps);

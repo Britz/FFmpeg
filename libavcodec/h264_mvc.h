@@ -75,7 +75,7 @@ int save_SPS(H264Context *h, SPS* sps);
  *	@param sps_id	id of the SPS, which should be activated.
  *	@return SPS*    \li{Success: the pointer to the activated SPS} \li{Error: 0}
  */
-SPS* activate_SPS(H264Context *h, uint sps_id);
+SPS* get_SPS(H264Context *h0, H264Context *h, uint sps_id, int activate_it);
 
 /** Adds the PPS to the buffer of each MVC context.
  *
@@ -96,7 +96,7 @@ int save_PPS(H264Context *h, PPS* pps, uint pps_id);
  *	@param pps_id	id of the PPS. (necessary, since PPS does not store their own id)
  *	@return PPS*    \li{Success: the pointer to the activated PPS} \li{Error: 0}
  */
-PPS* activate_PPS(H264Context *h, uint pps_id);
+PPS* get_PPS(H264Context *h0, H264Context *h, uint pps_id, int activate_it);
 
 // ==================================================================== //
 //  							CLAUSES									//

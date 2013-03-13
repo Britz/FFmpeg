@@ -28,6 +28,7 @@
 #include "internal.h"
 #include "avcodec.h"
 #include "h264.h"
+#include "h264_mvc.h"
 #include "golomb.h"
 
 //#undef NDEBUG
@@ -140,25 +141,26 @@ static int decode_buffering_period(H264Context *h){
 
     // EDIT for MVC support
 	// JB subset SPS buffer initialization for multi-threading
-    if(h->nal_unit_type == NAL_EXT_SLICE){
-		if(sps_id > 31 || !h->sub_sps_buffers[sps_id]) {
-			av_log(h->s.avctx, AV_LOG_ERROR, "non-existing subset SPS %d referenced in buffering period\n", sps_id);
-			// return -1;
-			// Try normal sps
-			if(sps_id > 31 || !h->sps_buffers[sps_id]) {
-				av_log(h->s.avctx, AV_LOG_ERROR, "non-existing SPS %d referenced in buffering period\n", sps_id);
-				return -1;
-			}
-			sps = h->sps_buffers[sps_id];
-		}
-		sps = h->sub_sps_buffers[sps_id];
-    }else{
-    	if(sps_id > 31 || !h->sps_buffers[sps_id]) {
-			av_log(h->s.avctx, AV_LOG_ERROR, "non-existing SPS %d referenced in buffering period\n", sps_id);
-			return -1;
-		}
-		sps = h->sps_buffers[sps_id];
-    }
+//    if(h->nal_unit_type == NAL_EXT_SLICE){
+//		if(sps_id > 31 || !h->sub_sps_buffers[sps_id]) {
+//			av_log(h->s.avctx, AV_LOG_ERROR, "non-existing subset SPS %d referenced in buffering period\n", sps_id);
+//			// return -1;
+//			// Try normal sps
+//			if(sps_id > 31 || !h->sps_buffers[sps_id]) {
+//				av_log(h->s.avctx, AV_LOG_ERROR, "non-existing SPS %d referenced in buffering period\n", sps_id);
+//				return -1;
+//			}
+//			sps = h->sps_buffers[sps_id];
+//		}
+//		sps = h->sub_sps_buffers[sps_id];
+//    }else{
+//    	if(sps_id > 31 || !h->sps_buffers[sps_id]) {
+//			av_log(h->s.avctx, AV_LOG_ERROR, "non-existing SPS %d referenced in buffering period\n", sps_id);
+//			return -1;
+//		}
+//		sps = h->sps_buffers[sps_id];
+//    }
+    sps = get_SPS(h, h, sps_id, 0);
 	// END EDIT
     // if(sps_id > 31 || !h->sps_buffers[sps_id]) {
     //     av_log(h->s.avctx, AV_LOG_ERROR, "non-existing SPS %d referenced in buffering period\n", sps_id);

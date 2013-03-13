@@ -3022,29 +3022,36 @@ static int decode_slice_header(H264Context *h, H264Context *h0)
 	s->pict_type = h->slice_type;
 
 	pps_id = get_ue_golomb(&s->gb);
-    if (pps_id >= MAX_PPS_COUNT) {
-        av_log(h->s.avctx, AV_LOG_ERROR, "pps_id %d out of range\n", pps_id);
-        return -1;
-    }
-    if (!h0->pps_buffers[pps_id]) {
-        av_log(h->s.avctx, AV_LOG_ERROR,
-               "non-existing PPS %u referenced\n",
-               pps_id);
-        return -1;
-    }
-    h->pps = *h0->pps_buffers[pps_id];
-
-    if (!h0->sps_buffers[h->pps.sps_id]) {
-        av_log(h->s.avctx, AV_LOG_ERROR,
-               "non-existing SPS %u referenced\n",
-               h->pps.sps_id);
-        return -1;
-    }
-    h->sps = *h0->sps_buffers[h->pps.sps_id];
+//    if (pps_id >= MAX_PPS_COUNT) {
+//        av_log(h->s.avctx, AV_LOG_ERROR, "pps_id %d out of range\n", pps_id);
+//        return -1;
+//    }
+//    if (!h0->pps_buffers[pps_id]) {
+//        av_log(h->s.avctx, AV_LOG_ERROR,
+//               "non-existing PPS %u referenced\n",
+//               pps_id);
+//        return -1;
+//    }
+//    h->pps = *h0->pps_buffers[pps_id];
+//
+//    if (!h0->sps_buffers[h->pps.sps_id]) {
+//        av_log(h->s.avctx, AV_LOG_ERROR,
+//               "non-existing SPS %u referenced\n",
+//               h->pps.sps_id);
+//        return -1;
+//    }
+//    h->sps = *h0->sps_buffers[h->pps.sps_id];
 
 	// EDIT for MVC support
 	// JB Sub SPS handling and activation
 	// @author: Jochen Britz
+	// activate SPS and PPS in H264Context
+	get_PPS(h0, h, pps_id, 1);
+	get_SPS(h0, h, h->pps.sps_id, 1);
+	// set previous parsed values
+	h->sps.pps_id = pps_id;
+	h->sps.first_mb_in_slice = first_mb_in_slice;
+
 
 	//h->pps = *activate_PPS(h0, pps_id);
 	//h->sps = h0->sps;
@@ -5287,10 +5294,11 @@ int ff_h264_svc_decode_slice_header_threaded(H264Context *h, H264Context *h0) {
 	// EDIT for MVC support
 	// JB Sub SPS handling and activation
 	// @author: Jochen Britz
-
-	h->pps = *activate_PPS(h0, pps_id);
-	h->sps = h0->sps;
-	// after activating PPS and SPS set previous received values
+	// activate SPS and PPS in H264Context
+	get_PPS(h0, h,pps_id, 1);
+	get_SPS(h0, h ,h->pps.sps_id, 1);
+	// set previous parsed values
+	h->sps.pps_id = pps_id;
 	h->sps.first_mb_in_slice = first_mb_in_slice;
 
 	// if (pps_id >= MAX_PPS_COUNT) {

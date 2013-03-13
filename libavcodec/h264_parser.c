@@ -288,7 +288,7 @@ static inline int parse_nal_units(AVCodecParserContext *s,
 	// @author: Jochen Britz
 	nal_slice:
 	// END EDIT
-            get_ue_golomb_long(&h->s.gb);  // skip first_mb_in_slice
+			get_ue_golomb_long(&h->s.gb);  // skip first_mb_in_slice
             slice_type = get_ue_golomb_31(&h->s.gb);
             s->pict_type = golomb_to_pict_type[slice_type % 5];
             if (h->sei_recovery_frame_cnt >= 0) {
@@ -296,38 +296,33 @@ static inline int parse_nal_units(AVCodecParserContext *s,
                 s->key_frame = 1;
             }
             pps_id = get_ue_golomb(&h->s.gb);
-            //activate_PPS(h, pps_id);
-            if(pps_id>=MAX_PPS_COUNT) {
-                av_log(h->s.avctx, AV_LOG_ERROR, "pps_id out of range\n");
-                return -1;
-            }
-            if(!h->pps_buffers[pps_id]) {
-                av_log(h->s.avctx, AV_LOG_ERROR, "non-existing PPS referenced\n");
-                return -1;
-            }
-            h->pps= *h->pps_buffers[pps_id];
+
             // EDIT for MVC support
 			// JB sub_sps_buffer
 			// @author: Jochen Britz
-			if(h->nal_unit_type == NAL_EXT_SLICE && h->sub_sps_buffers[h->pps.sps_id] != NULL){
-				if(!h->sub_sps_buffers[h->pps.sps_id]) {
-					av_log(h->s.avctx, AV_LOG_ERROR, "non-existing sub SPS referenced\n");
-					return -1;
-				}
-				h->sps = *h->sub_sps_buffers[h->pps.sps_id];
-			}else{
-				if(!h->sps_buffers[h->pps.sps_id]) {
-					av_log(h->s.avctx, AV_LOG_ERROR, "non-existing SPS referenced\n");
-					return -1;
-				}
-				h->sps = *h->sps_buffers[h->pps.sps_id];
-			}
-//            if(!h->sps_buffers[h->pps.sps_id]) {
-//			 	  av_log(h->s.avctx, AV_LOG_ERROR, "non-existing SPS referenced\n");
-//                return -1;
-//            }
-//            h->sps = *h->sps_buffers[h->pps.sps_id];
-           // END EDIT
+            // activate SPS and PPS in H264Context
+			get_PPS(h, h,pps_id, 1);
+			get_SPS(h, h ,h->pps.sps_id, 1);
+			// set previous parsed values
+			h->sps.pps_id = pps_id;
+			//h->sps.first_mb_in_slice = first_mb_in_slice;
+
+			// activate_PPS(h, pps_id);
+			// if(pps_id>=MAX_PPS_COUNT) {
+			//     av_log(h->s.avctx, AV_LOG_ERROR, "pps_id out of range\n");
+			//     return -1;
+			// }
+			// if(!h->pps_buffers[pps_id]) {
+			//     av_log(h->s.avctx, AV_LOG_ERROR, "non-existing PPS referenced\n");
+			//     return -1;
+			// }
+			// h->pps= *h->pps_buffers[pps_id];
+			// if(!h->sps_buffers[h->pps.sps_id]) {
+			//     av_log(h->s.avctx, AV_LOG_ERROR, "non-existing SPS referenced\n");
+            //     return -1;
+            // }
+            // h->sps = *h->sps_buffers[h->pps.sps_id];
+            // END EDIT
 
             h->frame_num = get_bits(&h->s.gb, h->sps.log2_max_frame_num);
 
