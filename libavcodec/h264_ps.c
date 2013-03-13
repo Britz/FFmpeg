@@ -521,11 +521,12 @@ static int more_rbsp_data_in_pps(H264Context *h, PPS *pps) {
 //	}else{
 //		sps = h->sps_buffers[pps->sps_id];
 //	}
-	if(h->sps_buffers[pps->sps_id]){
-		sps = h->sps_buffers[pps->sps_id];
-	}else{
-		sps = h->sub_sps_buffers[pps->sps_id];
-	}
+//	if(h->sps_buffers[pps->sps_id]){
+//		sps = h->sps_buffers[pps->sps_id];
+//	}else{
+//		sps = h->sub_sps_buffers[pps->sps_id];
+//	}
+	sps = get_SPS(h,h,pps->sps_id,0);
 	profile_idc = sps->profile_idc;
 	// END EDIT
 	// const SPS *sps = h->sps_buffers[pps->sps_id];

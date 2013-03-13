@@ -52,7 +52,7 @@ MpegEncContext* ff_h264_get_MpegEncContext(H264Context *h);
  * 	Does the same initialization then extract_H264Context()
  * 	without extracting H264Context out of AVCodecContext.
  */
-void init_H264Context(const AVCodecContext * avctx, H264Context *h);
+void init_H264Context(H264Context *h);
 
 /** Adds the SPS to the buffer of each MVC context.
  *

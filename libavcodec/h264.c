@@ -1343,19 +1343,15 @@ static void copy_parameter_set(void **to, void **from, int count, int size)
 
 static int decode_init_thread_copy(AVCodecContext *avctx)
 {
-
-    H264Context *h;
-    int i;
+	// Only buffers of first context are used.
+	H264Context *h = ff_h264_extract_Context(avctx, &h, 0);
 	// H264Context *h = avctx->priv_data;
-	for(i = 0; i<MAX_VIEW_COUNT; i++){
-		ff_h264_extract_Context(avctx, &h, i);
-		if (!avctx->internal->is_copy)
-			return 0;
-		memset(h->sps_buffers, 0, sizeof(h->sps_buffers));
-		memset(h->pps_buffers, 0, sizeof(h->pps_buffers));
-		memset(h->sub_sps_buffers, 0, sizeof(h->sub_sps_buffers));
-	}
-	// END EDIT
+
+	if (!avctx->internal->is_copy)
+		return 0;
+	memset(h->sps_buffers, 0, sizeof(h->sps_buffers));
+	memset(h->pps_buffers, 0, sizeof(h->pps_buffers));
+	memset(h->sub_sps_buffers, 0, sizeof(h->sub_sps_buffers));
 
 	return 0;
 }
@@ -3242,7 +3238,7 @@ static int decode_slice_header(H264Context *h, H264Context *h0)
 				c->cur_chroma_format_idc = h->cur_chroma_format_idc;
 				// EDIT JB initialize threaded H246Context hx in terms of MVC
 				c->view_id = h->view_id;
-				init_H264Context(s->avctx, c);
+				init_H264Context(c);
 				// END EDIT
 				init_scan_tables(c);
 				clone_tables(c, h, i);
@@ -5463,28 +5459,12 @@ int ff_h264_svc_decode_slice_header_threaded(H264Context *h, H264Context *h0) {
 
 		s->avctx->hwaccel = ff_find_hwaccel(s->avctx->codec->id, s->avctx->pix_fmt);
 
-		// Initialize common fields and also
-		// MpegEncContext.picture which acts as DPB (line 781)
-		if(h->is_mvc && !s->mvc_dbp_initialized) {
-			SPS* sps = &h->sps;
-
-			if(!sps->is_sub_sps){
-				for(i=0; i< MAX_SPS_COUNT; i++){
-					if(h->sub_sps_buffers[i]){
-						sps = h->sub_sps_buffers[i];
-						break;
-					}
-				}
-			}
-			s->max_picture_count = FFMAX(MAX_PICTURE_COUNT, MAX_PICTURE_COUNT*ceil(log2(sps->num_views_minus1 + 1)))
-					* FFMAX(1, s->avctx->thread_count);
-			s->mvc_dbp_initialized = 1;
-		}
-		/**JB ff_h264_realloc_DPB() should be here
-		 * ff_MPV_common_init()
-		 * Initializes MpegEncContext.picture at line 781
-		 * which acts as DPB to s->picture_count = 32* s->avctx->thread_count
-		 * ff_h264_realloc_DPB
+		/**EDIT JB Initialize size of DPB
+		 *
+		 * ff_MPV_common_init() initializes common fields
+		 * and also MpegEncContext.picture which acts as DPB (line 781)
+		 *
+		 * Old DPB size calculation: s->picture_count = 32*s->avctx->thread_count
 		 */
 		ff_h264_init_picture_count(h, s);
 
@@ -5521,7 +5501,7 @@ int ff_h264_svc_decode_slice_header_threaded(H264Context *h, H264Context *h0) {
 				c->cur_chroma_format_idc = h->cur_chroma_format_idc;
 				// EDIT JB initialize threaded H246Context hx in terms of MVC
 				c->view_id = h->view_id;
-				init_H264Context(s->avctx, c);
+				init_H264Context(c);
 				// END EDIT
 				init_scan_tables(c);
 				clone_tables(c, h, i);
