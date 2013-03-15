@@ -154,7 +154,7 @@ void avcodec_set_dimensions(AVCodecContext *s, int width, int height){
 }
 
 // JB SOME USEd BUT OLD INTERNAL BUFFER WILL OVERFLOW -> make it bigger!!!
-#define INTERNAL_BUFFER_SIZE ((32+1) *8)
+#define INTERNAL_BUFFER_SIZE ((32+1))// *8)
 
 void avcodec_align_dimensions2(AVCodecContext *s, int *width, int *height,
                                int linesize_align[AV_NUM_DATA_POINTERS])

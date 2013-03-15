@@ -198,7 +198,7 @@ const uint8_t *ff_h264_decode_nal(H264Context *h, const uint8_t *src,
 	}
 	// END EDIT
 
-	av_log(h->s.avctx, AV_LOG_INFO, "NAL unit decoded with type (%3d), frame (%3d), view (%3d) and view index (%3d)\n", h->nal_unit_type, h->frame_num ,h->view_id, h->voidx );
+	//av_log(h->s.avctx, AV_LOG_INFO, "NAL unit decoded with type (%3d), frame (%3d), view (%3d) and view index (%3d)\n", h->nal_unit_type, h->frame_num ,h->view_id, h->voidx );
 
 #if HAVE_FAST_UNALIGNED
 #if HAVE_FAST_64BIT
@@ -1252,9 +1252,12 @@ av_cold int ff_h264_decode_init(AVCodecContext *avctx) {
 		// END EDIT
 
 
+
 		ff_MPV_decode_defaults(s);
 
 		s->avctx = avctx;
+		s->avci = av_mallocz(sizeof(AVCodecInternal));
+		s->buffer_internal = 0;
 		common_init(h);
 
 		s->out_format = FMT_H264;
@@ -1301,10 +1304,11 @@ av_cold int ff_h264_decode_init(AVCodecContext *avctx) {
 		}
 	}
 	for(view_id = 1; view_id<MAX_VIEW_COUNT; view_id++){
-		ff_h264_extract_Context(avctx, &h, view_id);
+		MpegEncContext * const s = ff_h264_extract_Context(avctx, &h, view_id);
 		if(view_id != 0){
 			memcpy(h->mvc_context, h0->mvc_context, sizeof(h0->mvc_context));
 		}
+		s->buffer_internal = 1;
 	}
 	return 0;
 }
@@ -1392,17 +1396,21 @@ static int decode_update_thread_context(AVCodecContext *dst, const AVCodecContex
 			for (i = 0; i < MAX_PPS_COUNT; i++)
 				av_freep(h->pps_buffers + i);
 
+			// EDIT for MVC support
+			// JB subset SPS buffer initialization for multi-threading
+			for (i = 0; i < MAX_SPS_COUNT; i++) {
+				av_freep(h->sub_sps_buffers + i);
+			}
+			// END EDIT
+
 			// copy all fields after MpegEnc
         	memcpy(&h->s + 1, &h1->s + 1,
                sizeof(H264Context) - sizeof(MpegEncContext));
 			memset(h->sps_buffers, 0, sizeof(h->sps_buffers));
 			memset(h->pps_buffers, 0, sizeof(h->pps_buffers));
 
+
 			// EDIT for MVC support
-			// JB subset SPS buffer initialization for multi-threading
-			for (i = 0; i < MAX_SPS_COUNT; i++) {
-				av_freep(h->sub_sps_buffers + i);
-			}
 			memset(h->sub_sps_buffers, 0, sizeof(h->sub_sps_buffers));
 			// END EDIT
 
@@ -1442,8 +1450,8 @@ static int decode_update_thread_context(AVCodecContext *dst, const AVCodecContex
 
 		// EDIT for MVC support
 		// JB subset SPS copy for multi-threading
-		copy_parameter_set((void **) h->sub_sps_buffers, (void **) h1->sub_sps_buffers, MAX_SPS_COUNT,
-				sizeof(SPS));
+		copy_parameter_set((void **)h->sub_sps_buffers, (void **)h1->sub_sps_buffers,
+					   MAX_SPS_COUNT, sizeof(SPS));
 		// END EDIT
 
 		// Dequantization matrices
@@ -4910,6 +4918,7 @@ static int decode_frame_mvc(H264Context *h, void *data, int *data_size, const ui
 	// buf_size != 0
 
 	buf_index = decode_nal_units(h, buf, buf_size);
+
 	if (buf_index < 0) return -1;
 
 	if (!s->current_picture_ptr && h->nal_unit_type == NAL_END_SEQUENCE) {
@@ -4939,6 +4948,8 @@ static int decode_frame_mvc(H264Context *h, void *data, int *data_size, const ui
 
 	assert(pict->data[0] || !*data_size);
 	ff_print_debug_info(s, pict);
+
+	av_log(h->s.avctx, AV_LOG_INFO, "NAL unit type %2d: Frame %3d of view %d decoded.\n", h->nal_unit_type, h->frame_num, h->view_id);
 
 	return get_consumed_bytes(s, buf_index, buf_size);
 }

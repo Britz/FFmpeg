@@ -629,7 +629,7 @@ int ff_h264_execute_ref_pic_marking(H264Context *h, MMCO *mmco, int mmco_count){
             err = AVERROR_INVALIDDATA;
         // EDIT JB
         } else if(h->nal_unit_type == NAL_EXT_SLICE) {
-        	int view_id = h->view_id;
+
 			if(h->short_ref_count)
 				memmove(&h->short_ref[1], &h->short_ref[0], h->short_ref_count*sizeof(Picture*));
 

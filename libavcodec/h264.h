@@ -42,11 +42,6 @@
 #define MAX_SPS_COUNT          32
 #define MAX_PPS_COUNT         256
 
-
-// EDIT JB max view count
-// should be 1024 but for now 8 is enough
-#define MAX_VIEW_COUNT         8
-// END  EDIT
 #define MAX_MMCO_COUNT         66
 
 #define MAX_DELAYED_PIC_COUNT  16

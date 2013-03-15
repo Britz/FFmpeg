@@ -297,9 +297,9 @@ int ff_h264_decode_seq_parameter_set(H264Context *h) {
 	// JB sub_sps_buffer
 	// @author: Jochen Britz
 	if(h->nal_unit_type == NAL_SUB_SPS){
-		//av_log(h->s.avctx, AV_LOG_DEBUG, "Parsing subset SPS (%d)\n", sps_id);
+		av_log(h->s.avctx, AV_LOG_DEBUG, "Parsing subset SPS (%d)\n", sps_id);
 	}else{
-		//av_log(h->s.avctx, AV_LOG_DEBUG, "Parsing SPS (%d)\n", sps_id);
+		av_log(h->s.avctx, AV_LOG_DEBUG, "Parsing SPS (%d)\n", sps_id);
 	}
 	// END EDIT
 

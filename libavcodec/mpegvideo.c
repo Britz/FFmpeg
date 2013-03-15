@@ -223,6 +223,187 @@ void ff_copy_picture(Picture *dst, Picture *src)
     dst->f.type = FF_BUFFER_TYPE_COPY;
 }
 
+
+// JB
+static int alloc_frame_buffer_internal(MpegEncContext *mctx, AVFrame *pic)
+{
+	AVCodecContext *s = mctx->avctx;
+	InternalBuffer *buf;
+	AVCodecInternal *avci = mctx->avci;
+    int i;
+    int w= s->width;
+    int h= s->height;
+
+    if(pic->data[0]!=NULL) {
+        av_log(s, AV_LOG_ERROR, "pic->data[0]!=NULL in avcodec_default_get_buffer\n");
+        return -1;
+    }
+    if(avci->buffer_count >= INTERNAL_BUFFER_SIZE) {
+        av_log(s, AV_LOG_ERROR, "buffer_count overflow (missing release_buffer?)\n");
+        return -1;
+    }
+
+    if(av_image_check_size(w, h, 0, s) || s->pix_fmt<0)
+        return -1;
+
+    if (!avci->buffer) {
+        avci->buffer = av_mallocz((INTERNAL_BUFFER_SIZE+1) *
+                                  sizeof(InternalBuffer));
+        avci->buffer_count = 0;
+    }
+
+    buf = &avci->buffer[avci->buffer_count];
+
+    if(buf->base[0] && (buf->width != w || buf->height != h || buf->pix_fmt != s->pix_fmt)){
+        for (i = 0; i < AV_NUM_DATA_POINTERS; i++) {
+            av_freep(&buf->base[i]);
+            buf->data[i]= NULL;
+        }
+    }
+
+    if (!buf->base[0]) {
+        int h_chroma_shift, v_chroma_shift;
+        int size[4] = {0};
+        int tmpsize;
+        int unaligned;
+        AVPicture picture;
+        int stride_align[AV_NUM_DATA_POINTERS];
+        const int pixel_size = av_pix_fmt_descriptors[s->pix_fmt].comp[0].step_minus1+1;
+
+        avcodec_get_chroma_sub_sample(s->pix_fmt, &h_chroma_shift, &v_chroma_shift);
+
+        avcodec_align_dimensions2(s, &w, &h, stride_align);
+
+        if(!(s->flags&CODEC_FLAG_EMU_EDGE)){
+            w+= EDGE_WIDTH*2;
+            h+= EDGE_WIDTH*2;
+        }
+
+        do {
+            // NOTE: do not align linesizes individually, this breaks e.g. assumptions
+            // that linesize[0] == 2*linesize[1] in the MPEG-encoder for 4:2:2
+            av_image_fill_linesizes(picture.linesize, s->pix_fmt, w);
+            // increase alignment of w for next try (rhs gives the lowest bit set in w)
+            w += w & ~(w-1);
+
+            unaligned = 0;
+            for (i=0; i<4; i++){
+                unaligned |= picture.linesize[i] % stride_align[i];
+            }
+        } while (unaligned);
+
+        tmpsize = av_image_fill_pointers(picture.data, s->pix_fmt, h, NULL, picture.linesize);
+        if (tmpsize < 0)
+            return -1;
+
+        for (i=0; i<3 && picture.data[i+1]; i++)
+            size[i] = picture.data[i+1] - picture.data[i];
+        size[i] = tmpsize - (picture.data[i] - picture.data[0]);
+
+        memset(buf->base, 0, sizeof(buf->base));
+        memset(buf->data, 0, sizeof(buf->data));
+
+        for(i=0; i<4 && size[i]; i++){
+            const int h_shift= i==0 ? 0 : h_chroma_shift;
+            const int v_shift= i==0 ? 0 : v_chroma_shift;
+
+            buf->linesize[i]= picture.linesize[i];
+
+            buf->base[i]= av_malloc(size[i]+16); //FIXME 16
+            if(buf->base[i]==NULL) return -1;
+            memset(buf->base[i], 128, size[i]);
+
+            // no edge if EDGE EMU or not planar YUV
+            if((s->flags&CODEC_FLAG_EMU_EDGE) || !size[2])
+                buf->data[i] = buf->base[i];
+            else
+                buf->data[i] = buf->base[i] + FFALIGN((buf->linesize[i]*EDGE_WIDTH>>v_shift) + (pixel_size*EDGE_WIDTH>>h_shift), stride_align[i]);
+        }
+        for (; i < AV_NUM_DATA_POINTERS; i++) {
+            buf->base[i] = buf->data[i] = NULL;
+            buf->linesize[i] = 0;
+        }
+        if(size[1] && !size[2])
+            ff_set_systematic_pal2((uint32_t*)buf->data[1], s->pix_fmt);
+        buf->width  = s->width;
+        buf->height = s->height;
+        buf->pix_fmt= s->pix_fmt;
+    }
+    pic->type= FF_BUFFER_TYPE_USER;
+
+    for (i = 0; i < AV_NUM_DATA_POINTERS; i++) {
+        pic->base[i]= buf->base[i];
+        pic->data[i]= buf->data[i];
+        pic->linesize[i]= buf->linesize[i];
+    }
+    pic->extended_data = pic->data;
+    avci->buffer_count++;
+    pic->width  = buf->width;
+    pic->height = buf->height;
+    pic->format = buf->pix_fmt;
+    pic->sample_aspect_ratio = s->sample_aspect_ratio;
+
+    if (s->pkt) {
+        pic->pkt_pts = s->pkt->pts;
+        pic->pkt_pos = s->pkt->pos;
+    } else {
+        pic->pkt_pts = AV_NOPTS_VALUE;
+        pic->pkt_pos = -1;
+    }
+    pic->reordered_opaque= s->reordered_opaque;
+    pic->sample_aspect_ratio = s->sample_aspect_ratio;
+    pic->width               = s->width;
+    pic->height              = s->height;
+    pic->format              = s->pix_fmt;
+
+    if(s->debug&FF_DEBUG_BUFFERS)
+        av_log(s, AV_LOG_DEBUG, "default_get_buffer called on pic %p, %d "
+               "buffers used\n", pic, avci->buffer_count);
+
+    return 0;
+}
+
+/**
+ * Release a frame buffer
+ */
+static void free_frame_buffer_internal(MpegEncContext *mctx, Picture *picture)
+{
+	int i;
+	AVCodecContext *s = mctx->avctx;
+	AVFrame *pic = &picture->f;
+	InternalBuffer *buf, *last;
+	AVCodecInternal *avci = mctx->avci;
+
+	av_assert0(s->codec_type == AVMEDIA_TYPE_VIDEO);
+
+	assert(pic->type==FF_BUFFER_TYPE_INTERNAL);
+	assert(avci->buffer_count);
+
+	if (avci->buffer) {
+		buf = NULL; /* avoids warning */
+		for (i = 0; i < avci->buffer_count; i++) { //just 3-5 checks so is not worth to optimize
+			buf = &avci->buffer[i];
+			if (buf->data[0] == pic->data[0])
+				break;
+		}
+		av_assert0(i < avci->buffer_count);
+		avci->buffer_count--;
+		last = &avci->buffer[avci->buffer_count];
+
+		if (buf != last)
+			FFSWAP(InternalBuffer, *buf, *last);
+	}
+
+	for (i = 0; i < AV_NUM_DATA_POINTERS; i++) {
+		pic->data[i]=NULL;
+//        pic->base[i]=NULL;
+	}
+
+	if(s->debug&FF_DEBUG_BUFFERS)
+		av_log(s, AV_LOG_DEBUG, "default_release_buffer called on pic %p, %d "
+			   "buffers used\n", pic, avci->buffer_count);
+}
+
 /**
  * Release a frame buffer
  */
@@ -231,12 +412,15 @@ static void free_frame_buffer(MpegEncContext *s, Picture *pic)
     /* Windows Media Image codecs allocate internal buffers with different
      * dimensions; ignore user defined callbacks for these
      */
-    if (s->codec_id != CODEC_ID_WMV3IMAGE && s->codec_id != CODEC_ID_VC1IMAGE)
+	if (s->buffer_internal){
+		free_frame_buffer_internal(s, pic);
+	}else if (s->codec_id != CODEC_ID_WMV3IMAGE && s->codec_id != CODEC_ID_VC1IMAGE)
         ff_thread_release_buffer(s->avctx, &pic->f);
     else
         avcodec_default_release_buffer(s->avctx, &pic->f);
     av_freep(&pic->f.hwaccel_picture_private);
 }
+
 
 /**
  * Allocate a frame buffer
@@ -256,7 +440,9 @@ static int alloc_frame_buffer(MpegEncContext *s, Picture *pic)
         }
     }
 
-    if (s->codec_id != CODEC_ID_WMV3IMAGE && s->codec_id != CODEC_ID_VC1IMAGE)
+    if (s->buffer_internal){
+    	r = alloc_frame_buffer_internal(s, &pic->f);
+    }else if (s->codec_id != CODEC_ID_WMV3IMAGE && s->codec_id != CODEC_ID_VC1IMAGE)
         r = ff_thread_get_buffer(s->avctx, &pic->f);
     else
         r = avcodec_default_get_buffer(s->avctx, &pic->f);
@@ -869,7 +1055,6 @@ av_cold int ff_MPV_common_init(MpegEncContext *s)
         }
         s->slice_context_count = nb_slices;
 //     }
-
     return 0;
  fail:
     ff_MPV_common_end(s);
@@ -1145,7 +1330,7 @@ int ff_MPV_frame_start(MpegEncContext *s, AVCodecContext *avctx)
     assert(s->last_picture_ptr == NULL || s->out_format != FMT_H264 ||
            s->codec_id == CODEC_ID_SVQ3);
 
-    if (!ff_thread_can_start_frame(avctx)) {
+    if (!s->buffer_internal && !ff_thread_can_start_frame(avctx)) {
         av_log(avctx, AV_LOG_ERROR, "Attempt to start a frame outside SETUP state\n");
         return -1;
     }

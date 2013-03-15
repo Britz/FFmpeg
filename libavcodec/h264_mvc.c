@@ -137,7 +137,7 @@ int save_SPS(H264Context *h, SPS* sps, uint8_t activate_it){
 				h->mvc_context[i]->sps = *sps;
 			}
 		}
-		av_log(h->s.avctx, AV_LOG_INFO, "%sSPS (%u) activated.\n",sps->is_sub_sps ? "Subset " : "", sps->id);
+		av_log(h->s.avctx, AV_LOG_INFO, "save_SPS: %sSPS (%u) activated.\n",sps->is_sub_sps ? "Subset " : "", sps->id);
 	}
 	return ret;
 }
@@ -205,7 +205,7 @@ SPS* get_SPS(H264Context *h0, H264Context *h, uint sps_id, uint8_t activate_it){
 			// write to main context can lead to memory error
 			// h0->sps = *sps;
 		}
-		av_log(h->s.avctx, AV_LOG_INFO, "%sSPS (%u) activated.\n",sps->is_sub_sps ? "Subset " : "", sps_id);
+		av_log(h->s.avctx, AV_LOG_INFO, "get_SPS: %sSPS (%u) activated.\n",sps->is_sub_sps ? "Subset " : "", sps_id);
 		return &h->sps;
 	}
 	return sps;
@@ -239,7 +239,7 @@ PPS* get_PPS(H264Context *h0, H264Context *h, uint pps_id, uint8_t activate_it){
 		if(h != h0){
 			// write to main context can lead to memory error
 			// should be done on update_thread_context
-			//h0->pps = *pps;
+			// h0->pps = *pps;
 		}
 		//av_log(h->s.avctx, AV_LOG_INFO, "PPS (%u) activated.\n", pps_id);
 		return &h->pps;
@@ -1467,7 +1467,10 @@ int ff_h264_deploy_prefix_nal_threaded(H264Context *h, H264Context *h0) {
 
 int ff_h264_mvc_deploy_nal_header(H264Context *h) {
 	int err = 0;
-	if(h->nal_unit_type != NAL_PREFIX && h->is_mvc){
+	if(  h->is_mvc && (h->nal_unit_type == NAL_SLICE
+			|| h->nal_unit_type == NAL_IDR_SLICE
+			|| h->nal_unit_type == NAL_DPA
+			|| h->nal_unit_type == NAL_AUXILIARY_SLICE) ){
 		if (h->prefix_nal_present != 0) {
 			// reset prefix flag
 			h->prefix_nal_present = 0;
@@ -1486,18 +1489,16 @@ int ff_h264_mvc_deploy_nal_header(H264Context *h) {
 			}
 		}else{
 			// if no prefix NAL unit is present, infer the missing values
-			if(h->nal_unit_type == NAL_SLICE) {
-				h->non_idr_flag = 1;
-			}
+			h->anchor_pic_flag = 0;
+			h->non_idr_present = 1;
+			h->priority_id = 0;
+			h->view_id = 0;
+			h->inter_view_flag =1;
+
 			if(h->nal_unit_type == NAL_IDR_SLICE) {
 				h->non_idr_flag = 0;
-			}
-			if(h->nal_unit_type == NAL_SLICE || h->nal_unit_type == NAL_IDR_SLICE) {
-
-				h->non_idr_present = 1;
-				h->priority_id = 0;
-				h->view_id = 0;
-				h->inter_view_flag =1;
+			}else{
+				h->non_idr_flag = 1;
 			}
 
 		}

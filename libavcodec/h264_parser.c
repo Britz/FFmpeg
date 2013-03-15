@@ -164,7 +164,7 @@ static inline int parse_nal_units(AVCodecParserContext *s,
     const uint8_t *buf_end;
     int buf_size_intern = 0;
     unsigned int pps_id;
-    unsigned int slice_type;
+    unsigned int slice_type, slice_count = 0;
     int state = -1, view_id, buf_index = 0;
     const uint8_t *ptr;
     int q264 = buf_size >=4 && !memcmp("Q264", buf, 4);
@@ -296,6 +296,7 @@ static inline int parse_nal_units(AVCodecParserContext *s,
 		// @author: Jochen Britz
 		nal_slice:
 		// END EDIT
+				slice_count++;
 				get_ue_golomb_long(&h->s.gb);  // skip first_mb_in_slice
 				slice_type = get_ue_golomb_31(&h->s.gb);
 				s->pict_type = golomb_to_pict_type[slice_type % 5];
@@ -402,8 +403,11 @@ static inline int parse_nal_units(AVCodecParserContext *s,
 				} else {
 					s->repeat_pict = h->s.picture_structure == PICT_FRAME ? 1 : 0;
 				}
+
+				if(slice_count == MAX_VIEW_COUNT){
+					return 0; /* no need to evaluate the rest */
+				}
 				break;
-				//return 0; /* no need to evaluate the rest */
 			}
 			buf_index += h->is_avc ? nalsize : consumed;
 			buf += h->is_avc ? nalsize : consumed;

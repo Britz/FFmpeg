@@ -34,6 +34,7 @@
 #include "put_bits.h"
 #include "ratecontrol.h"
 #include "parser.h"
+#include "internal.h"
 #include "mpeg12data.h"
 #include "rl.h"
 #include "libavutil/timecode.h"
@@ -49,6 +50,12 @@ enum OutputFormat {
     FMT_MJPEG,
     FMT_H264,
 };
+
+// EDIT JB max view count
+// should be 1024 but for now 8 is enough
+#define MAX_VIEW_COUNT         8
+#define INTERNAL_BUFFER_SIZE  ((32+1)*(MAX_VIEW_COUNT-1))
+// END  EDIT
 
 #define MPEG_BUF_SIZE (16 * 1024)
 
@@ -716,6 +723,8 @@ typedef struct MpegEncContext {
 	// @author: Jochen Britz
     int mvc_dbp_initialized;
     int max_picture_count;
+    int buffer_internal;
+	AVCodecInternal* avci;						///< simulates internal context for multi view frames
     // END EDIT
 } MpegEncContext;
 
