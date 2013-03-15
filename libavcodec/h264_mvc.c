@@ -47,6 +47,21 @@ MpegEncContext* ff_h264_extract_Context(const AVCodecContext * avctx, H264Contex
 	return &(*h)->s;
 }
 
+MpegEncContext* ff_h264_extract_parser_Context(const AVCodecParserContext* avctx, H264Context** h, int voidx){
+	H264Context *h_mvc = avctx->priv_data;
+	if(voidx < 0 && voidx > MAX_VIEW_COUNT){
+		(*h) = &h_mvc[0];
+		(*h)->voidx = 0;
+		//av_log((*h)->s.avctx, AV_LOG_ERROR,"ff_h264_extract_Context: voidx %d out of range [0..%d] took H264Context[0] instead.\n", voidx, MAX_VIEW_COUNT);
+	}else{
+		(*h) = &h_mvc[voidx];
+		(*h)->voidx = voidx;
+		//av_log((*h)->s.avctx, AV_LOG_INFO,"ff_h264_extract_Context: H264Context[%d] extracted.\n", voidx);
+	}
+	init_H264Context(*h);
+	return &(*h)->s;
+}
+
 MpegEncContext* ff_h264_get_MpegEncContext(H264Context *h){
 	if(h->mvc_context[0]){
 		return &h->mvc_context[0]->s;
@@ -59,7 +74,7 @@ void init_H264Context(H264Context *h){
 }
 
 
-int save_PPS(H264Context *h, PPS* pps, uint pps_id){
+int save_PPS(H264Context *h, PPS* pps, uint pps_id, uint8_t activate_it){
 	int ret = 0;
 	H264Context *h_main = h->mvc_context[0];
 	if(!h_main){
@@ -74,10 +89,14 @@ int save_PPS(H264Context *h, PPS* pps, uint pps_id){
 		ret = 1;
 	}
 	h_main->pps_buffers[pps_id] = pps;
+	if(activate_it){
+		h->pps = *pps;
+		av_log(h->s.avctx, AV_LOG_INFO, "PPS (%u) activated.\n", pps_id);
+	}
 	return ret;
 }
 
-int save_SPS(H264Context *h, SPS* sps){
+int save_SPS(H264Context *h, SPS* sps, uint8_t activate_it){
 	int  ret = 0;
 	H264Context *h_main = h->mvc_context[0];
 	if(!h_main){
@@ -100,21 +119,25 @@ int save_SPS(H264Context *h, SPS* sps){
 			ret = 1;
 		}
 		h_main->sps_buffers[sps->id] = sps;
-		// activate SPS
-		h_main->sps = *sps;
 	}else{
 		return -1;
+	}
+	// activate SPS
+	if(sps && activate_it){
+		h->sps = *sps;
+		av_log(h->s.avctx, AV_LOG_INFO, "%sSPS (%u) activated.\n",sps->is_sub_sps ? "Subset " : "", sps->id);
 	}
 	return ret;
 }
 
-SPS* get_SPS(H264Context *h0, H264Context *h, uint sps_id, int activate_it){
+SPS* get_SPS(H264Context *h0, H264Context *h, uint sps_id, uint8_t activate_it){
 	H264Context *h_main = h0->mvc_context[0];
+	SPS *sps = 0;
+
 	if(!h_main){
 		h_main = h0;
 	}
-	SPS *sps = 0;
-	if (h->nal_unit_type == NAL_EXT_SLICE) { // MVC slice -> use sub_sps_buffer
+	if (h->nal_unit_type == NAL_EXT_SLICE || h->nal_unit_type == NAL_SUB_SPS  ) { // MVC slice -> use sub_sps_buffer
 		if(h->sps.id == sps_id && h->sps.is_sub_sps){
 			return &h->sps;
 		}
@@ -129,45 +152,54 @@ SPS* get_SPS(H264Context *h0, H264Context *h, uint sps_id, int activate_it){
 				return 0;
 			}
 			sps = h_main->sps_buffers[sps_id];
-			av_log(h->s.avctx, AV_LOG_ERROR, "SPS (%u) activated.\n", sps_id);
+		}else{
+			sps = h_main->sub_sps_buffers[sps_id];
 		}
-		sps = h_main->sub_sps_buffers[sps_id];
-		av_log(h->s.avctx, AV_LOG_ERROR, "Subset SPS (%u) activated.\n", sps_id);
 	} else {  // normal slice -> use sps_buffer
 		if(h->sps.id == sps_id && !h->sps.is_sub_sps){
 			return &h->sps;
 		}
 		if (!h_main->sps_buffers[sps_id]) {
-			av_log(h->s.avctx, AV_LOG_ERROR, "Non-existing SPS (%u) referenced, try subset SPS instead.\n", sps_id);
+			if(!h->nal_unit_type == NAL_PPS){
+				av_log(h->s.avctx, AV_LOG_ERROR, "Non-existing SPS (%u) referenced, try subset SPS instead.\n", sps_id);
+			}
 			// Try normal sps buffer
 			if (!h_main->sub_sps_buffers[sps_id]) {
-				av_log(h->s.avctx, AV_LOG_ERROR,
-						"Non-existing SPS (%u) referenced, also subset SPS (%u) is non-existing.\n",
-						sps_id, sps_id);
+				if(!h->nal_unit_type == NAL_PPS){
+					av_log(h->s.avctx, AV_LOG_ERROR,"Non-existing SPS (%u) referenced, also subset SPS (%u) is non-existing.\n", sps_id, sps_id);
+				}else{
+					av_log(h->s.avctx, AV_LOG_ERROR,"Non-existing SPS (%u) or subset SPS (%u) referenced.\n", sps_id, sps_id);
+				}
 				return 0;
 			}
 			sps = h_main->sub_sps_buffers[sps_id];
-			av_log(h->s.avctx, AV_LOG_ERROR, "Subset SPS (%u) activated.\n", sps_id);
+		}else{
+			sps = h_main->sps_buffers[sps_id];
 		}
-		sps = h_main->sps_buffers[sps_id];
-		av_log(h->s.avctx, AV_LOG_ERROR, "SPS (%u) activated.\n", sps_id);
 	}
-	if(activate_it){
-		h0->sps = *sps;
-		if(h != h0){
-			h->sps = h0->sps;
+	if(sps  && activate_it){
+		if(h->sps.id == sps->id && h->sps.is_sub_sps == sps->is_sub_sps){
+			return &h->sps;
 		}
+		h->sps = *sps;
+		if(h != h0){
+			// write to main context can lead to memory error
+			// h0->sps = *sps;
+		}
+		av_log(h->s.avctx, AV_LOG_INFO, "%sSPS (%u) activated.\n",sps->is_sub_sps ? "Subset " : "", sps_id);
 		return &h->sps;
 	}
 	return sps;
 }
 
-PPS* get_PPS(H264Context *h0, H264Context *h, uint pps_id, int activate_it){
+PPS* get_PPS(H264Context *h0, H264Context *h, uint pps_id, uint8_t activate_it){
 	H264Context *h_main = h0->mvc_context[0];
+	PPS *pps = 0;
+
 	if(!h_main){
 		h_main = h0;
 	}
-	PPS *pps = 0;
+
 	if (pps_id >= MAX_PPS_COUNT) {
 		av_log(h->s.avctx, AV_LOG_ERROR, "pps_id %u out of range\n", pps_id);
 		return 0;
@@ -177,16 +209,125 @@ PPS* get_PPS(H264Context *h0, H264Context *h, uint pps_id, int activate_it){
 		return 0;
 	}
 	pps = h_main->pps_buffers[pps_id];
-	if(activate_it){
-		h0->pps = *pps;
+	if(pps  && activate_it){
+		h->pps = *pps;
 
 		if(h != h0){
-			h->pps = h0->pps;
+			// write to main context can lead to memory error
+			//h0->pps = *pps;
 		}
+		av_log(h->s.avctx, AV_LOG_INFO, "PPS (%u) activated.\n", pps_id);
 		return &h->pps;
 	}
 	return pps;
 }
+
+int ff_h264_find_mvc_frame_end(H264Context *h, const uint8_t *buf, int buf_size){
+    int i, j, extra_bytes;
+    uint32_t state;
+    ParseContext *pc = &(h->s.parse_context);
+    int next_avc= h->is_avc ? 0 : buf_size;
+
+//  printf("first %02X%02X%02X%02X\n", buf[0], buf[1],buf[2],buf[3]);
+//    mb_addr= pc->mb_addr - 1;
+    state= pc->state;
+    extra_bytes = 0;
+    if(state>13)
+        state= 7;
+
+    if(h->is_avc && !h->nal_length_size)
+        av_log(h->s.avctx, AV_LOG_ERROR, "AVC-parser: nal length size invalid\n");
+
+    for(i=0; i<buf_size; i++){
+        if(i >= next_avc) {
+            int nalsize = 0;
+            i = next_avc;
+            for(j = 0; j < h->nal_length_size; j++)
+                nalsize = (nalsize << 8) | buf[i++];
+            if(nalsize <= 0 || nalsize > buf_size - i){
+                av_log(h->s.avctx, AV_LOG_ERROR, "AVC-parser: nal size %d remaining %d\n", nalsize, buf_size - i);
+                return buf_size;
+            }
+            next_avc= i + nalsize;
+            state= 5;
+        }
+
+        if(state==7){
+#if HAVE_FAST_UNALIGNED
+        /* we check i<buf_size instead of i+3/7 because its simpler
+         * and there should be FF_INPUT_BUFFER_PADDING_SIZE bytes at the end
+         */
+#    if HAVE_FAST_64BIT
+            while(i<next_avc && !((~*(const uint64_t*)(buf+i) & (*(const uint64_t*)(buf+i) - 0x0101010101010101ULL)) & 0x8080808080808080ULL))
+                i+=8;
+#    else
+            while(i<next_avc && !((~*(const uint32_t*)(buf+i) & (*(const uint32_t*)(buf+i) - 0x01010101U)) & 0x80808080U))
+                i+=4;
+#    endif
+#endif
+            for(; i<next_avc; i++){
+                if(!buf[i]){
+                    state=2;
+                    break;
+                }
+            }
+        }else if(state<=2){
+            if(buf[i]==1)   state^= 5; //2->7, 1->4, 0->5
+            else if(buf[i]) state = 7;
+            else            state>>=1; //2->1, 1->0, 0->0
+        }else if(state<=5){
+            int v= buf[i] & 0x1F;
+            if(v==6 || v==7 || v==8 || v==9 || v==15 || v==14 ){
+            	if(v==14){
+					i+=3;
+					extra_bytes = 3;
+				}
+                if(pc->frame_start_found){
+                    i++;
+                    goto found;
+                }
+            }else if(v==1 || v==2 || v==3 || v==5 || v == 20 ){
+            	if(v==20){
+					i+=3;
+					extra_bytes = 3;
+            	}
+                state+=8;
+                continue;
+            }
+            state= 7;
+        }else{
+            h->parse_history[h->parse_history_count++]= buf[i];
+            if(h->parse_history_count>3){
+                unsigned int mb, last_mb= h->parse_last_mb;
+                GetBitContext gb;
+
+                init_get_bits(&gb, h->parse_history, 8*h->parse_history_count);
+                h->parse_history_count=0;
+                mb= get_ue_golomb_long(&gb);
+                last_mb= h->parse_last_mb;
+                h->parse_last_mb= mb;
+                if(pc->frame_start_found){
+                    if(mb <= last_mb)
+                        goto found;
+                }else
+                    pc->frame_start_found = 1;
+                state= 7;
+            }
+        }
+    }
+    pc->state= state;
+    if(h->is_avc)
+        return next_avc;
+    return END_NOT_FOUND;
+
+found:
+    pc->state=7;
+    pc->frame_start_found= 0;
+    if(h->is_avc)
+        return next_avc;
+    return i-(state&5) - 3*(state>7)-extra_bytes;
+}
+
 
 /** 7.3.2.1.2 */
 void ff_h264_decode_sps_ext(H264Context *h, SPS *sps) {
@@ -1017,6 +1158,10 @@ void ff_h264_mvc_decode_sps(H264Context *h, SPS *sps) {
 int ff_h264_mvc_reorder_ref_pic_list(H264Context *h, SPS* sps){
 	MpegEncContext * const s = &h->s;
 	int list, index, pic_structure;
+	H264Context *h_main = h->mvc_context[0];
+	if(!h_main){
+		h_main = h;
+	}
 	//av_log(h->s.avctx, AV_LOG_INFO, "NAL unit type is %d\n", h->nal_unit_type);
 	//av_log(h->s.avctx, AV_LOG_INFO, "NAL unit type is %d\n", );
 
@@ -1042,8 +1187,8 @@ int ff_h264_mvc_reorder_ref_pic_list(H264Context *h, SPS* sps){
 				if(index >= ref_count ){
 					break;
 				}
-				if(h->inter_view_ref_list[h->sps.anchor_ref[list][h->view_id][i]]){
-					h->ref_list[list][index++] = *h->inter_view_ref_list[h->sps.anchor_ref[list][h->view_id][i]];
+				if(h_main->inter_view_ref_list[h->sps.anchor_ref[list][h->view_id][i]]){
+					h->ref_list[list][index++] = *h_main->inter_view_ref_list[h->sps.anchor_ref[list][h->view_id][i]];
 				}
 			}
 
@@ -1170,8 +1315,8 @@ int ff_h264_mvc_reorder_ref_pic_list(H264Context *h, SPS* sps){
 
 						targetViewID = view_ref_list[view_idx_pred];
 
-						if(h->inter_view_ref_list[targetViewID]){
-							ref = h->inter_view_ref_list[targetViewID];
+						if(h_main->inter_view_ref_list[targetViewID]){
+							ref = h_main->inter_view_ref_list[targetViewID];
 							ref->pic_id = h->curr_pic_num;
 						}
 

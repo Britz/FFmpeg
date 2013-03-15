@@ -46,8 +46,9 @@ int max(int a, int b);
  *  return MpegEncContext
  */
 MpegEncContext* ff_h264_extract_Context(const AVCodecContext * avctx, H264Context** h, int voidx);
+MpegEncContext* ff_h264_extract_parser_Context(const AVCodecParserContext* avctx, H264Context** h, int voidx);
 MpegEncContext* ff_h264_get_MpegEncContext(H264Context *h);
-
+int ff_h264_find_mvc_frame_end(H264Context *h, const uint8_t *buf, int buf_size);
 /** INIT H264Context
  * 	Does the same initialization then extract_H264Context()
  * 	without extracting H264Context out of AVCodecContext.
@@ -66,7 +67,7 @@ void init_H264Context(H264Context *h);
  *	@param sps	pointer to the SPS, which should be stored in buffer.
  *	@return  \li{Override: 1} \li{Success: 0} \li{Error: -1}
  */
-int save_SPS(H264Context *h, SPS* sps);
+int save_SPS(H264Context *h, SPS* sps, uint8_t activate_it);
 
 /** ACTIVATE SPS
  * 	Activates the SPS.
@@ -76,7 +77,7 @@ int save_SPS(H264Context *h, SPS* sps);
  *	@param sps_id	id of the SPS, which should be activated.
  *	@return SPS*    \li{Success: the pointer to the activated SPS} \li{Error: 0}
  */
-SPS* get_SPS(H264Context *h0, H264Context *h, uint sps_id, int activate_it);
+SPS* get_SPS(H264Context *h0, H264Context *h, uint sps_id, uint8_t activate_it);
 
 /** Adds the PPS to the buffer of each MVC context.
  *
@@ -87,7 +88,7 @@ SPS* get_SPS(H264Context *h0, H264Context *h, uint sps_id, int activate_it);
  *	@param pps_id	id of the PPS. (necessary, since PPS does not store their own id)
  *	@return  		\li{Override: 1} \li{Success: 0} \li{Error: -1}
  */
-int save_PPS(H264Context *h, PPS* pps, uint pps_id);
+int save_PPS(H264Context *h, PPS* pps, uint pps_id, uint8_t activate_it);
 
 /** ACTIVATE PPS
  * 	Activates the PPS from pps_buffer and the SPS with id = pps.sps_id.
@@ -97,7 +98,7 @@ int save_PPS(H264Context *h, PPS* pps, uint pps_id);
  *	@param pps_id	id of the PPS. (necessary, since PPS does not store their own id)
  *	@return PPS*    \li{Success: the pointer to the activated PPS} \li{Error: 0}
  */
-PPS* get_PPS(H264Context *h0, H264Context *h, uint pps_id, int activate_it);
+PPS* get_PPS(H264Context *h0, H264Context *h, uint pps_id, uint8_t activate_it);
 
 // ==================================================================== //
 //  							CLAUSES									//

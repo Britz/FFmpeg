@@ -303,7 +303,6 @@ int ff_h264_decode_seq_parameter_set(H264Context *h) {
 	}
 	// END EDIT
 
-
 	if (sps_id >= MAX_SPS_COUNT) {
 		av_log(h->s.avctx, AV_LOG_ERROR, "sps_id (%d) out of range\n", sps_id);
 		return -1;
@@ -488,9 +487,13 @@ int ff_h264_decode_seq_parameter_set(H264Context *h) {
 //		h->sps_buffers[sps_id] = sps;
 //		h->sps = *sps;
 //	}
-	if(save_SPS(h, sps)<0){
+	if(save_SPS(h, sps, (h->nal_unit_type != NAL_SUB_SPS))<0){
 		goto fail;
 	}
+	if(sps->is_sub_sps){
+		return sps_id;
+	}
+
 	// av_free(h->sps_buffers[sps_id]);
 	// h->sps_buffers[sps_id] = sps;
 	// h->sps = *sps;
@@ -733,7 +736,7 @@ int ff_h264_decode_picture_parameter_set(H264Context *h, int bit_length) {
 	}
 
 	// EDIT JB save PPS to all MVC_Contexts.
-	if(save_PPS(h,pps,pps_id)<0){
+	if(save_PPS(h, pps, pps_id, 0) < 0){
 		 goto fail;
 	}
 	//av_free(h->pps_buffers[pps_id]);

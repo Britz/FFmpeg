@@ -608,6 +608,10 @@ int ff_h264_execute_ref_pic_marking(H264Context *h, MMCO *mmco, int mmco_count){
     }
 
     if (!current_ref_assigned) {
+    	H264Context *h_main = h->mvc_context[0];
+		if(!h_main){
+			h_main = h;
+		}
         /* Second field of complementary field pair; the first field of
          * which is already referenced. If short referenced, it
          * should be first entry in short_ref. If not, it must exist
@@ -632,14 +636,17 @@ int ff_h264_execute_ref_pic_marking(H264Context *h, MMCO *mmco, int mmco_count){
 			h->short_ref[0]= s->current_picture_ptr;
 			if(h->inter_view_flag){
 				s->current_picture_ptr->view_id = h->view_id;
-				h->inter_view_ref_list[h->view_id] = s->current_picture_ptr;
+				if(!h_main->inter_view_ref_list[h->view_id]){
+					h_main->inter_ref_count++;
+				}
+				h_main->inter_view_ref_list[h->view_id] = s->current_picture_ptr;
 				//s->current_picture_ptr->f.reference |= INTER_PIC_REF;
 			}
 			h->short_ref_count++;
 			s->current_picture_ptr->f.reference |= s->picture_structure;
         // END EDIT
         } else {
-            pic = remove_short(h, s->current_picture_ptr->frame_num, 0);
+        	pic = remove_short(h, s->current_picture_ptr->frame_num, 0);
             if(pic){
                 av_log(h->s.avctx, AV_LOG_ERROR, "illegal short term buffer state detected\n");
                 err = AVERROR_INVALIDDATA;
@@ -653,7 +660,7 @@ int ff_h264_execute_ref_pic_marking(H264Context *h, MMCO *mmco, int mmco_count){
             // EDIT JB:
             if(h->inter_view_flag){
             	s->current_picture_ptr->view_id = h->view_id;
-            	h->inter_view_ref_list[h->view_id] = s->current_picture_ptr;
+            	h_main->inter_view_ref_list[h->view_id] = s->current_picture_ptr;
             	//s->current_picture_ptr->f.reference |= INTER_PIC_REF;
             }
             h->short_ref_count++;

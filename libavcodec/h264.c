@@ -176,8 +176,6 @@ const uint8_t *ff_h264_decode_nal(H264Context *h, const uint8_t *src,
 	h->nal_ref_idc = src[0] >> 5;
 	h->nal_unit_type = src[0] & 0x1F;
 
-	//av_log(h->s.avctx, AV_LOG_INFO, "nal_unit_type: %d \n", h->nal_unit_type);
-
 	src++;
 	length--;
 
@@ -199,6 +197,8 @@ const uint8_t *ff_h264_decode_nal(H264Context *h, const uint8_t *src,
 		length -= 3;
 	}
 	// END EDIT
+
+	av_log(h->s.avctx, AV_LOG_INFO, "nal_unit_type: %d , view_id: %d, voidx: %d\n", h->nal_unit_type, h->view_id, h->voidx);
 
 #if HAVE_FAST_UNALIGNED
 #if HAVE_FAST_64BIT
@@ -1344,7 +1344,8 @@ static void copy_parameter_set(void **to, void **from, int count, int size)
 static int decode_init_thread_copy(AVCodecContext *avctx)
 {
 	// Only buffers of first context are used.
-	H264Context *h = ff_h264_extract_Context(avctx, &h, 0);
+	H264Context *h;
+	ff_h264_extract_Context(avctx, &h, 0);
 	// H264Context *h = avctx->priv_data;
 
 	if (!avctx->internal->is_copy)
@@ -3202,7 +3203,6 @@ static int decode_slice_header(H264Context *h, H264Context *h0)
 		 * ff_h264_realloc_DPB
 		 */
 		ff_h264_init_picture_count(h, s);	
-		av_log(h->s.avctx, AV_LOG_INFO, "allocate DPB memory for h264 MVC to %d \n", s->picture_count);
 		// END EDIT
 
 		if (ff_MPV_common_init(s) < 0) {
@@ -4943,115 +4943,6 @@ static int decode_frame_mvc(H264Context *h, void *data, int *data_size, const ui
 	return get_consumed_bytes(s, buf_index, buf_size);
 }
 
-
-static int ff_h264_find_frame_end(H264Context *h, const uint8_t *buf, int buf_size)
-{
-    int i, j, extra_bytes;
-    uint32_t state;
-    ParseContext *pc = &(h->s.parse_context);
-    int next_avc= h->is_avc ? 0 : buf_size;
-
-//  printf("first %02X%02X%02X%02X\n", buf[0], buf[1],buf[2],buf[3]);
-//    mb_addr= pc->mb_addr - 1;
-    state= pc->state;
-    extra_bytes = 0;
-    if(state>13)
-        state= 7;
-
-    if(h->is_avc && !h->nal_length_size)
-        av_log(h->s.avctx, AV_LOG_ERROR, "AVC-parser: nal length size invalid\n");
-
-    for(i=0; i<buf_size; i++){
-        if(i >= next_avc) {
-            int nalsize = 0;
-            i = next_avc;
-            for(j = 0; j < h->nal_length_size; j++)
-                nalsize = (nalsize << 8) | buf[i++];
-            if(nalsize <= 0 || nalsize > buf_size - i){
-                av_log(h->s.avctx, AV_LOG_ERROR, "AVC-parser: nal size %d remaining %d\n", nalsize, buf_size - i);
-                return buf_size;
-            }
-            next_avc= i + nalsize;
-            state= 5;
-        }
-
-        if(state==7){
-#if HAVE_FAST_UNALIGNED
-        /* we check i<buf_size instead of i+3/7 because its simpler
-         * and there should be FF_INPUT_BUFFER_PADDING_SIZE bytes at the end
-         */
-#    if HAVE_FAST_64BIT
-            while(i<next_avc && !((~*(const uint64_t*)(buf+i) & (*(const uint64_t*)(buf+i) - 0x0101010101010101ULL)) & 0x8080808080808080ULL))
-                i+=8;
-#    else
-            while(i<next_avc && !((~*(const uint32_t*)(buf+i) & (*(const uint32_t*)(buf+i) - 0x01010101U)) & 0x80808080U))
-                i+=4;
-#    endif
-#endif
-            for(; i<next_avc; i++){
-                if(!buf[i]){
-                    state=2;
-                    break;
-                }
-            }
-        }else if(state<=2){
-            if(buf[i]==1)   state^= 5; //2->7, 1->4, 0->5
-            else if(buf[i]) state = 7;
-            else            state>>=1; //2->1, 1->0, 0->0
-        }else if(state<=5){
-            int v= buf[i] & 0x1F;
-            if(v==6 || v==7 || v==8 || v==9 || v==15 || v==14 ){
-            	if(v==14){
-					i+=3;
-					extra_bytes = 3;
-				}
-                if(pc->frame_start_found){
-                    i++;
-                    goto found;
-                }
-            }else if(v==1 || v==2 || v==3 || v==5 || v == 20 ){
-            	if(v==20){
-					i+=3;
-					extra_bytes = 3;
-            	}
-                state+=8;
-                continue;
-            }
-            state= 7;
-        }else{
-            h->parse_history[h->parse_history_count++]= buf[i];
-            if(h->parse_history_count>3){
-                unsigned int mb, last_mb= h->parse_last_mb;
-                GetBitContext gb;
-
-                init_get_bits(&gb, h->parse_history, 8*h->parse_history_count);
-                h->parse_history_count=0;
-                mb= get_ue_golomb_long(&gb);
-                last_mb= h->parse_last_mb;
-                h->parse_last_mb= mb;
-                if(pc->frame_start_found){
-                    if(mb <= last_mb)
-                        goto found;
-                }else
-                    pc->frame_start_found = 1;
-                state= 7;
-            }
-        }
-    }
-    pc->state= state;
-    if(h->is_avc)
-        return next_avc;
-    return END_NOT_FOUND;
-
-found:
-    pc->state=7;
-    pc->frame_start_found= 0;
-    if(h->is_avc)
-        return next_avc;
-    return i-(state&5) - 3*(state>7)-extra_bytes;
-}
-
-
 static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPacket *avpkt) {
 	const uint8_t *buf = avpkt->data;
 	int buf_size = avpkt->size;
@@ -5096,7 +4987,7 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
 	for(i = 0; i<MAX_VIEW_COUNT; i++){
 		//ff_h264_extract_Context(avctx, &h,i);
 
-		frame_end = ff_h264_find_frame_end(h, buf+buf_idx, buf_size-buf_idx);
+		frame_end = ff_h264_find_mvc_frame_end(h, buf+buf_idx, buf_size-buf_idx);
 		consumed = decode_frame_mvc(h, &out[i], &out_size[i], buf+buf_idx, frame_end);
 		if(consumed >=0){
 			buf_idx += consumed;

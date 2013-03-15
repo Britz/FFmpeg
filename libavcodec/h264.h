@@ -647,6 +647,7 @@ typedef struct H264Context {
 
 	int long_ref_count;     ///< number of actual long term references
 	int short_ref_count;    ///< number of actual short term references
+	int inter_ref_count;    ///< number of actual inter view references
 
 
 	//MMCO mmco[MAX_MMCO_COUNT];
