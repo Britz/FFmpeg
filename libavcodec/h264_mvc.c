@@ -90,7 +90,13 @@ int save_PPS(H264Context *h, PPS* pps, uint pps_id, uint8_t activate_it){
 	}
 	h_main->pps_buffers[pps_id] = pps;
 	if(activate_it){
+		int i;
 		h->pps = *pps;
+		for(i = 0; i<MAX_VIEW_COUNT; i++){
+			if(h->mvc_context[i] && h->mvc_context[i] != h){
+				h->mvc_context[i]->pps = *pps;
+			}
+		}
 		av_log(h->s.avctx, AV_LOG_INFO, "PPS (%u) activated.\n", pps_id);
 	}
 	return ret;
@@ -124,7 +130,13 @@ int save_SPS(H264Context *h, SPS* sps, uint8_t activate_it){
 	}
 	// activate SPS
 	if(sps && activate_it){
+		int i;
 		h->sps = *sps;
+		for(i = 0; i<MAX_VIEW_COUNT; i++){
+			if(h->mvc_context[i] && h->mvc_context[i] != h){
+				h->mvc_context[i]->sps = *sps;
+			}
+		}
 		av_log(h->s.avctx, AV_LOG_INFO, "%sSPS (%u) activated.\n",sps->is_sub_sps ? "Subset " : "", sps->id);
 	}
 	return ret;
@@ -138,6 +150,7 @@ SPS* get_SPS(H264Context *h0, H264Context *h, uint sps_id, uint8_t activate_it){
 		h_main = h0;
 	}
 	if (h->nal_unit_type == NAL_EXT_SLICE || h->nal_unit_type == NAL_SUB_SPS  ) { // MVC slice -> use sub_sps_buffer
+
 		if(h->sps.id == sps_id && h->sps.is_sub_sps){
 			return &h->sps;
 		}
@@ -178,10 +191,16 @@ SPS* get_SPS(H264Context *h0, H264Context *h, uint sps_id, uint8_t activate_it){
 		}
 	}
 	if(sps  && activate_it){
+		int i;
 		if(h->sps.id == sps->id && h->sps.is_sub_sps == sps->is_sub_sps){
 			return &h->sps;
 		}
 		h->sps = *sps;
+		for(i = 0; i<MAX_VIEW_COUNT; i++){
+			if(h0->mvc_context[i] && h0->mvc_context[i] != h0){
+				h0->mvc_context[i]->sps = *sps;
+			}
+		}
 		if(h != h0){
 			// write to main context can lead to memory error
 			// h0->sps = *sps;
@@ -210,13 +229,19 @@ PPS* get_PPS(H264Context *h0, H264Context *h, uint pps_id, uint8_t activate_it){
 	}
 	pps = h_main->pps_buffers[pps_id];
 	if(pps  && activate_it){
+		int i;
 		h->pps = *pps;
-
+		for(i = 0; i<MAX_VIEW_COUNT; i++){
+			if(h0->mvc_context[i] && h0->mvc_context[i] != h0){
+				h0->mvc_context[i]->pps = *pps;
+			}
+		}
 		if(h != h0){
 			// write to main context can lead to memory error
+			// should be done on update_thread_context
 			//h0->pps = *pps;
 		}
-		av_log(h->s.avctx, AV_LOG_INFO, "PPS (%u) activated.\n", pps_id);
+		//av_log(h->s.avctx, AV_LOG_INFO, "PPS (%u) activated.\n", pps_id);
 		return &h->pps;
 	}
 	return pps;
@@ -1099,7 +1124,7 @@ void ff_h264_mvc_decode_sps(H264Context *h, SPS *sps) {
 	for (i = 0; i <= sps->num_views_minus1; i++) {
 		tmp = get_ue_golomb(&s->gb);
 		sps->view_id[i] = tmp;
-		av_log(h->s.avctx, AV_LOG_DEBUG, "view_id[%d] =  %d \n", i, tmp);
+		//av_log(h->s.avctx, AV_LOG_DEBUG, "view_id[%d] =  %d \n", i, tmp);
 	}
 	for (i = 1; i <= sps->num_views_minus1; i++) {
 		tmp = get_ue_golomb(&s->gb);

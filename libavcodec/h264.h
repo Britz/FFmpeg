@@ -762,7 +762,7 @@ typedef struct H264Context {
 	int voidx;										///< view order index (vOIdx) of this context.
 
 	u_int8_t prefix_nal_present; 					///< signals, that informations of a prefix NAL unit are present for current NAL unit
-
+	int slice_nal_unit_type;						///< nal unit type of current slice
 
 	// Slice header
 	int idr_pic_id;

@@ -198,7 +198,7 @@ const uint8_t *ff_h264_decode_nal(H264Context *h, const uint8_t *src,
 	}
 	// END EDIT
 
-	av_log(h->s.avctx, AV_LOG_INFO, "nal_unit_type: %d , view_id: %d, voidx: %d\n", h->nal_unit_type, h->view_id, h->voidx);
+	av_log(h->s.avctx, AV_LOG_INFO, "NAL unit decoded with type (%3d), frame (%3d), view (%3d) and view index (%3d)\n", h->nal_unit_type, h->frame_num ,h->view_id, h->voidx );
 
 #if HAVE_FAST_UNALIGNED
 #if HAVE_FAST_64BIT
@@ -4985,8 +4985,7 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
 	i = 0;
 
 	for(i = 0; i<MAX_VIEW_COUNT; i++){
-		//ff_h264_extract_Context(avctx, &h,i);
-
+		ff_h264_extract_Context(avctx, &h,i);
 		frame_end = ff_h264_find_mvc_frame_end(h, buf+buf_idx, buf_size-buf_idx);
 		consumed = decode_frame_mvc(h, &out[i], &out_size[i], buf+buf_idx, frame_end);
 		if(consumed >=0){
