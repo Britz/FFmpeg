@@ -407,7 +407,7 @@ static inline int parse_nal_units(AVCodecParserContext *s,
 				if(slice_count == MAX_VIEW_COUNT){
 					return 0; /* no need to evaluate the rest */
 				}
-				break;
+				//break;
 			}
 			buf_index += h->is_avc ? nalsize : consumed;
 			buf += h->is_avc ? nalsize : consumed;

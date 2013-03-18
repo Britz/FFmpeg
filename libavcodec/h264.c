@@ -26,6 +26,7 @@
  */
 
 #define UNCHECKED_BITSTREAM_READER 1
+#define TARGET_VIEW_INDEX 		0
 
 #include "libavutil/imgutils.h"
 #include "libavutil/opt.h"
@@ -1239,7 +1240,7 @@ av_cold int ff_h264_decode_init(AVCodecContext *avctx) {
 	H264Context *h, *h0 = 0;
 	int i, view_id;
 	// H264Context *h = avctx->priv_data;
-
+	// avctx->thread_count;
 	for(view_id = 0; view_id<MAX_VIEW_COUNT; view_id++){
 
 		MpegEncContext * const s = ff_h264_extract_Context(avctx, &h, view_id);
@@ -1251,13 +1252,16 @@ av_cold int ff_h264_decode_init(AVCodecContext *avctx) {
 		h0->mvc_context[view_id] = h;
 		// END EDIT
 
-
-
 		ff_MPV_decode_defaults(s);
 
 		s->avctx = avctx;
-		s->avci = av_mallocz(sizeof(AVCodecInternal));
-		s->buffer_internal = 0;
+		//s->avci = av_mallocz(sizeof(AVCodecInternal));
+		if(i == TARGET_VIEW_INDEX){
+			s->buffer_internal = 0;
+		}else{
+			s->buffer_internal = 0;
+		}
+
 		common_init(h);
 
 		s->out_format = FMT_H264;
@@ -1304,11 +1308,8 @@ av_cold int ff_h264_decode_init(AVCodecContext *avctx) {
 		}
 	}
 	for(view_id = 1; view_id<MAX_VIEW_COUNT; view_id++){
-		MpegEncContext * const s = ff_h264_extract_Context(avctx, &h, view_id);
-		if(view_id != 0){
-			memcpy(h->mvc_context, h0->mvc_context, sizeof(h0->mvc_context));
-		}
-		s->buffer_internal = 1;
+		ff_h264_extract_Context(avctx, &h, view_id);
+		memcpy(h->mvc_context, h0->mvc_context, sizeof(h0->mvc_context));
 	}
 	return 0;
 }
@@ -1700,7 +1701,7 @@ static void decode_postinit(H264Context *h, int setup_finished)
 		}
 	}
 	out_of_order = MAX_DELAYED_PIC_COUNT - i;
-    if(   cur->f.pict_type == AV_PICTURE_TYPE_B
+    if(  ( cur->f.pict_type == AV_PICTURE_TYPE_B  && !h->anchor_pic_flag )
        || (h->last_pocs[MAX_DELAYED_PIC_COUNT-2] > INT_MIN && h->last_pocs[MAX_DELAYED_PIC_COUNT-1] - h->last_pocs[MAX_DELAYED_PIC_COUNT-2] > 2))
 		out_of_order = FFMAX(out_of_order, 1);
 	if (s->avctx->has_b_frames < out_of_order && !h->sps.bitstream_restriction_flag) {
@@ -1708,10 +1709,14 @@ static void decode_postinit(H264Context *h, int setup_finished)
 		s->avctx->has_b_frames = out_of_order;
 		s->low_delay = 0;
 	}
+	if(out_of_order && h->anchor_pic_flag){
+		out_of_order = 0;
+	}
 
 	pics = 0;
 	while (h->delayed_pic[pics])
 		pics++;
+
 
 	av_assert0(pics <= MAX_DELAYED_PIC_COUNT);
 
@@ -1757,7 +1762,7 @@ static void decode_postinit(H264Context *h, int setup_finished)
 		h->sync |= 2;
 	}
 
-    if (setup_finished)
+    if (setup_finished && !h->voidx	)
         ff_thread_finish_setup(s->avctx);
 }
 
@@ -3210,7 +3215,7 @@ static int decode_slice_header(H264Context *h, H264Context *h0)
 		 * which acts as DPB to s->picture_count = 32* s->avctx->thread_count
 		 * ff_h264_realloc_DPB
 		 */
-		ff_h264_init_picture_count(h, s);	
+ 		ff_h264_init_picture_count(h, s);
 		// END EDIT
 
 		if (ff_MPV_common_init(s) < 0) {
@@ -3755,6 +3760,15 @@ av_log	(s->avctx, AV_LOG_WARNING, "Possibly too many slices (%d >= %d), increase
 						id_list[i] = h->short_ref_count + k;
 						break;
 					}
+				// JB TODO set id_list for inter-view references
+				if(h->is_mvc){
+					for (k = 0; k < MAX_VIEW_COUNT; k++)
+						if (h->inter_view_ref_list[k] && h->inter_view_ref_list[k]->f.base[0] == base) {
+							// JB TODO find out what id_list exactly does and how it has to be set
+							id_list[i] = h->short_ref_count + h->long_ref_count + k;
+							break;
+						}
+				}
 			}
 		}
 
@@ -4563,7 +4577,7 @@ again:
 				}
 
                 s->current_picture_ptr->f.key_frame |=
-                        (hx->nal_unit_type == NAL_IDR_SLICE);
+                        (hx->nal_unit_type == NAL_IDR_SLICE || !! h->anchor_pic_flag);
 
 				if (h->recovery_frame == h->frame_num) {
                     s->current_picture_ptr->sync |= 1;
@@ -4881,7 +4895,7 @@ static int get_consumed_bytes(MpegEncContext *s, int pos, int buf_size)
 //	return get_consumed_bytes(s, buf_index, buf_size);
 //}
 
-static int decode_frame_mvc(H264Context *h, void *data, int *data_size, const uint8_t *buf, int buf_size) {
+static int decode_frame_single_view(H264Context *h, void *data, int *data_size, const uint8_t *buf, int buf_size) {
 	MpegEncContext *s = &h->s;
 	AVFrame *pict = data;
 	int buf_index = 0;
@@ -4963,8 +4977,7 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
 
 	int frame_end, consumed = 0;
 	int out_idx = buf_size;
-//	int target_view = 0;
-	int target_voidx = 0;
+	int target_view_index = 2;
 
 	AVFrame out[MAX_VIEW_COUNT];
 	int out_size[MAX_VIEW_COUNT];
@@ -4996,9 +5009,17 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
 	i = 0;
 
 	for(i = 0; i<MAX_VIEW_COUNT; i++){
+
+//		if(i==0){
+//			h=h0;
+//		}else{
+//			ff_h264_extract_Context(avctx, &h,i);
+//			h->s.picture = h0->s.picture;
+//		}
 		ff_h264_extract_Context(avctx, &h,i);
+
 		frame_end = ff_h264_find_mvc_frame_end(h, buf+buf_idx, buf_size-buf_idx);
-		consumed = decode_frame_mvc(h, &out[i], &out_size[i], buf+buf_idx, frame_end);
+		consumed = decode_frame_single_view(h, &out[i], &out_size[i], buf+buf_idx, frame_end);
 		if(consumed >=0){
 			buf_idx += consumed;
 		}else{
@@ -5015,9 +5036,13 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
 		}
 	}
 
+	// auto reset index to first view, if no MVC is available, or target view is wrong
+	if(!h->is_mvc || target_view_index < 0 || target_view_index >= MAX_VIEW_COUNT){
+		target_view_index = 0;
+	}
 
-	*pict = out[target_voidx];
-	*data_size = out_size[target_voidx];
+	*pict = out[target_view_index];
+	*data_size = out_size[target_view_index];
 
 	return out_idx;
 }
@@ -5097,7 +5122,7 @@ AVCodec ff_h264_decoder = {
 		.init = ff_h264_decode_init,
 		.close = h264_decode_end,
 		.decode = decode_frame,
-		.capabilities =/*CODEC_CAP_DRAW_HORIZ_BAND |*/CODEC_CAP_DR1 | CODEC_CAP_DELAY | CODEC_CAP_SLICE_THREADS | CODEC_CAP_FRAME_THREADS,
+		.capabilities =/*CODEC_CAP_DRAW_HORIZ_BAND |*/CODEC_CAP_DR1 | CODEC_CAP_DELAY | CODEC_CAP_SLICE_THREADS | !CODEC_CAP_FRAME_THREADS,
 		.flush = flush_dpb,
 		.long_name = NULL_IF_CONFIG_SMALL("H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10"),
 		.init_thread_copy = ONLY_IF_THREADS_ENABLED(decode_init_thread_copy),

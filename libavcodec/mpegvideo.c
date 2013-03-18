@@ -972,9 +972,10 @@ av_cold int ff_MPV_common_init(MpegEncContext *s)
     }
 
     s->picture_count = FFMAX(MAX_PICTURE_COUNT, s->max_picture_count) * FFMAX(1, s->avctx->thread_count);
-    FF_ALLOCZ_OR_GOTO(s->avctx, s->picture,
-                      s->picture_count * sizeof(Picture), fail);
-	av_log(s->avctx, AV_LOG_INFO, "DPB allocated to %d \n", s->picture_count);
+	FF_ALLOCZ_OR_GOTO(s->avctx, s->picture,
+				  s->picture_count * sizeof(Picture), fail);
+	//av_log(s->avctx, AV_LOG_INFO, "DPB allocated to %d \n", s->picture_count);
+
 
     for (i = 0; i < s->picture_count; i++) {
         avcodec_get_frame_defaults(&s->picture[i].f);
@@ -1055,6 +1056,7 @@ av_cold int ff_MPV_common_init(MpegEncContext *s)
         }
         s->slice_context_count = nb_slices;
 //     }
+       FF_ALLOCZ_OR_GOTO(s->avctx, s->avci, sizeof(AVCodecInternal), fail);
     return 0;
  fail:
     ff_MPV_common_end(s);

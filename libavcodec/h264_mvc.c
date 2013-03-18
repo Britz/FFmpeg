@@ -1344,7 +1344,10 @@ int ff_h264_mvc_reorder_ref_pic_list(H264Context *h, SPS* sps){
 							ref = h_main->inter_view_ref_list[targetViewID];
 							ref->pic_id = h->curr_pic_num;
 						}
-
+						if(!ref){
+							av_log(h->s.avctx, AV_LOG_ERROR,
+															"reference picture missing during reorder\n");
+						}
 
 					}
 
@@ -1497,6 +1500,7 @@ int ff_h264_mvc_deploy_nal_header(H264Context *h) {
 
 			if(h->nal_unit_type == NAL_IDR_SLICE) {
 				h->non_idr_flag = 0;
+				h->anchor_pic_flag = 1;
 			}else{
 				h->non_idr_flag = 1;
 			}
@@ -1617,8 +1621,8 @@ void ff_h264_init_picture_count(H264Context *h, MpegEncContext *s){
 			}
 		}
 
-		s->max_picture_count = FFMAX(MAX_PICTURE_COUNT, MAX_PICTURE_COUNT*ceil(log2(sps->num_views_minus1 + 1)))
-				* FFMAX(1, s->avctx->thread_count);
+		//s->max_picture_count = FFMAX(MAX_PICTURE_COUNT, MAX_PICTURE_COUNT*ceil(log2(sps->num_views_minus1 + 1)));
+		s->max_picture_count = MAX_PICTURE_COUNT;
 		if(s->picture_range_end - s->picture_range_start < s->max_picture_count){
 			s->picture_range_start = (s->picture_range_start/MAX_PICTURE_COUNT)*s->max_picture_count;
 			s->picture_range_end = (s->picture_range_end/MAX_PICTURE_COUNT)*s->max_picture_count;
