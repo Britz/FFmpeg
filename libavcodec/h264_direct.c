@@ -107,6 +107,11 @@ void ff_h264_direct_ref_list_init(H264Context * const h){
     int list, j, field;
     int sidx= (s->picture_structure&1)^1;
     int ref1sidx = (ref1->f.reference&1)^1;
+    // EDIT JB
+    if(ref1->inter_ref){
+    	h->direct_spatial_mv_pred = 1;
+    }
+    // END EDIT
 
     for(list=0; list<2; list++){
         cur->ref_count[sidx][list] = h->ref_count[list];

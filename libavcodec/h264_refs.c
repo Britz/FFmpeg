@@ -457,6 +457,14 @@ void ff_h264_remove_all_refs(H264Context *h){
 	}
 	h->short_ref_count=0;
 
+//	for (i = 0; i < MAX_VIEW_COUNT; i++){
+//		if(h->inter_ref_list[i] && h->inter_ref_list[i]->f.data[0]){
+//			 unreference_pic(h, h->inter_ref_list[i], 0);
+//		}
+//		h->inter_ref_list[i] = NULL;
+//	}
+//	h->inter_ref_count = 0;
+
 }
 
 /**
@@ -627,43 +635,33 @@ int ff_h264_execute_ref_pic_marking(H264Context *h, MMCO *mmco, int mmco_count){
                                              "in complementary field pair "
                                              "(first field is long term)\n");
             err = AVERROR_INVALIDDATA;
-        // EDIT JB
-        } else if(h->nal_unit_type == NAL_EXT_SLICE) {
-
-			if(h->short_ref_count)
-				memmove(&h->short_ref[1], &h->short_ref[0], h->short_ref_count*sizeof(Picture*));
-
-			//JB Note: short ref are set here!
-			h->short_ref[0]= s->current_picture_ptr;
-			if(h->inter_view_flag){
-				s->current_picture_ptr->view_id = h->view_id;
-				if(!h_main->inter_view_ref_list[h->view_id]){
-					h_main->inter_ref_count++;
-				}
-				h_main->inter_view_ref_list[h->view_id] = s->current_picture_ptr;
-				//s->current_picture_ptr->f.reference |= INTER_PIC_REF;
-			}
-			h->short_ref_count++;
-			s->current_picture_ptr->f.reference |= s->picture_structure;
-        // END EDIT
         } else {
         	pic = remove_short(h, s->current_picture_ptr->frame_num, 0);
-            if(pic){
-                av_log(h->s.avctx, AV_LOG_ERROR, "illegal short term buffer state detected\n");
-                err = AVERROR_INVALIDDATA;
-            }
+			if(pic){
+				av_log(h->s.avctx, AV_LOG_ERROR, "illegal short term buffer state detected\n");
+				err = AVERROR_INVALIDDATA;
+			}
 
             if(h->short_ref_count)
                 memmove(&h->short_ref[1], &h->short_ref[0], h->short_ref_count*sizeof(Picture*));
 
-            //JB Note: short ref are set here!
+
             h->short_ref[0] = s->current_picture_ptr;
-            // EDIT JB:
+            // EDIT JB short and inter_view references are set here!
             if(h->inter_view_flag){
-            	s->current_picture_ptr->view_id = h->view_id;
-            	h_main->inter_view_ref_list[h->view_id] = s->current_picture_ptr;
-            	//s->current_picture_ptr->f.reference |= INTER_PIC_REF;
-            }
+				s->current_picture_ptr->view_id = h->view_id;
+				if(h_main->inter_ref_list[h->view_id]){
+					h_main->inter_ref_list[h->view_id]->f.reference &= ~INTER_PIC_REF;
+				}else{
+					h_main->inter_ref_count++;
+				}
+				h_main->inter_ref_list[h->view_id] = s->current_picture_ptr;
+				s->current_picture_ptr->f.reference |= INTER_PIC_REF;
+				s->current_picture_ptr->inter_ref = 1;
+			}else{
+				s->current_picture_ptr->inter_ref = 0;
+			}
+            // END EDIT
             h->short_ref_count++;
             s->current_picture_ptr->f.reference |= s->picture_structure;
         }

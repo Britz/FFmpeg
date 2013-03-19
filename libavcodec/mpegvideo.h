@@ -153,6 +153,7 @@ typedef struct Picture{
 	// EDIT for MVC support
 	// @author: Jochen Britz
 	int view_id;				///< H264 MVC view identifier
+	int inter_ref;              ///< 1->inter-view reference component or an inter-view only reference component
 	//END EDIT
 } Picture;
 

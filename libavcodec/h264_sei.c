@@ -187,10 +187,26 @@ static int decode_buffering_period(H264Context *h){
 }
 
 
+static void ff_h264_copy_sei(H264Context *dst, H264Context *src){
+	if(src && dst && src != dst){
+		 int i;
+		 dst->sei_buffering_period_present =  src->sei_buffering_period_present;
+		 dst->sei_cpb_removal_delay =  src->sei_cpb_removal_delay;
+		 dst->sei_dpb_output_delay  = src->sei_dpb_output_delay;
+		 dst->sei_ct_type = src->sei_ct_type;
+		 dst->sei_recovery_frame_cnt = src->sei_recovery_frame_cnt;
+		 dst->sei_pic_struct = src->sei_pic_struct;
+		 for(i= 0; i<32; i++){
+			 dst->initial_cpb_removal_delay[i] =  src->initial_cpb_removal_delay[i];
+		 }
+	}
+}
+
+
 // JB TODO MVC sei extension
 int ff_h264_decode_sei(H264Context *h){
     MpegEncContext * const s = &h->s;
-
+    int i;
     while (get_bits_left(&s->gb) > 16) {
         int size, type;
 
@@ -234,6 +250,10 @@ int ff_h264_decode_sei(H264Context *h){
 
         //FIXME check bits here
         align_get_bits(&s->gb);
+    }
+
+    for(i = 0 ; i<MAX_VIEW_COUNT; i++){
+    	ff_h264_copy_sei(h->mvc_context[i],h);
     }
 
     return 0;
