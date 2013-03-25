@@ -609,11 +609,8 @@ int ff_h264_execute_ref_pic_marking(H264Context *h, MMCO *mmco, int mmco_count){
         }
     }
     if (!current_ref_assigned) {
-    	H264Context *h_main = h->mvc_context[0];
-		if(!h_main){
-			h_main = h;
-		}
-        /* Second field of complementary field pair; the first field of
+    	H264Context *h_base = h->mvc_context[0]?h->mvc_context[0]:h;
+	    /* Second field of complementary field pair; the first field of
          * which is already referenced. If short referenced, it
          * should be first entry in short_ref. If not, it must exist
          * in long_ref; trying to put it on the short list here is an
@@ -645,12 +642,12 @@ int ff_h264_execute_ref_pic_marking(H264Context *h, MMCO *mmco, int mmco_count){
 
             // EDIT JB short and inter_view references are set here!
             if(h->inter_view_flag){
-            	if(h_main->inter_ref_list[h->view_id]){
-					h_main->inter_ref_list[h->view_id]->f.reference &= ~INTER_PIC_REF;
+            	if(h_base->inter_ref_list[h->view_id]){
+					h_base->inter_ref_list[h->view_id]->f.reference &= ~INTER_PIC_REF;
 				}else{
-					h_main->inter_ref_count++;
+					h_base->inter_ref_count++;
 				}
-				h_main->inter_ref_list[h->view_id] = s->current_picture_ptr;
+				h_base->inter_ref_list[h->view_id] = s->current_picture_ptr;
 
 				s->current_picture_ptr->view_id = h->view_id;
 				s->current_picture_ptr->f.reference |= INTER_PIC_REF;

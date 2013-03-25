@@ -25,6 +25,10 @@ enum SVCAVPictureType {
 //  							HELPER									//
 // ==================================================================== //
 
+void ff_h264_thread_await_progress(H264Context *h, Picture *ref_pic, int n, int field);
+void ff_h264_thread_report_progress(H264Context *h, Picture *ref_pic, int n, int field);
+void ff_h264_thread_report_frame(H264Context *h);
+
 /** MIN
  * 	Returns the minimum of two integer values
  */

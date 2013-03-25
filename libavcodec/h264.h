@@ -752,9 +752,11 @@ typedef struct H264Context {
 	// just for easier handling of mvc (not in the standard)
 	u_int8_t is_mvc;   								///< signals, if MVC is available or not (NAL unit 14 or 20 received)
 	int base_view_id;  								///< view id of the base view, not the vOIdx of the base view!
-	Picture* inter_ref_list[MAX_VIEW_COUNT]; 	///< contains the pictures with inter_view_flag
+	Picture* inter_ref_list[MAX_VIEW_COUNT]; 		///< contains the pictures with inter_view_flag
 	struct H264Context* mvc_context[MAX_VIEW_COUNT];///< contains pointers to each view context indexed by vOIdx
 	int voidx;										///< view order index (vOIdx) of this context.
+	int target_voidx;								///< view order index (vOIdx) of target/output view.
+	int voidx_list[MAX_VIEW_COUNT];					///< list of vOIdx indexed by view_id.
 	int idr_frame_num;
 
 	u_int8_t prefix_nal_present; 					///< signals, that informations of a prefix NAL unit are present for current NAL unit

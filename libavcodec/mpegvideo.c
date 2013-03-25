@@ -565,7 +565,7 @@ fail: // for  the FF_ALLOCZ_OR_GOTO macro
 /**
  * Deallocate a picture.
  */
-static void free_picture(MpegEncContext *s, Picture *pic)
+void free_picture(MpegEncContext *s, Picture *pic)
 {
     int i;
 

@@ -26,7 +26,6 @@
  */
 
 #define UNCHECKED_BITSTREAM_READER 1
-#define TARGET_VIEW_INDEX 		0
 
 #include "libavutil/imgutils.h"
 #include "libavutil/opt.h"
@@ -447,34 +446,60 @@ static void await_references(H264Context *h)
 				int ref_field_picture = ref_pic->field_picture;
 				int pic_height = 16 * s->mb_height >> ref_field_picture;
 
+
 				row <<= MB_MBAFF;
 				nrefs[list]--;
 
+
 				if (!FIELD_PICTURE && ref_field_picture) { // frame referencing two fields
-                    ff_thread_await_progress(&ref_pic->f,
-                                             FFMIN((row >> 1) - !(row & 1),
-                                                   pic_height - 1),
+					ff_h264_thread_await_progress(h, ref_pic,
+                                             FFMIN((row >> 1) - !(row & 1), pic_height - 1),
                                              1);
-                    ff_thread_await_progress(&ref_pic->f,
+                    ff_h264_thread_await_progress(h, ref_pic,
                                              FFMIN((row >> 1), pic_height - 1),
                                              0);
 				} else if (FIELD_PICTURE && !ref_field_picture) { // field referencing one field of a frame
-                    ff_thread_await_progress(&ref_pic->f,
-                                             FFMIN(row * 2 + ref_field,
-                                                   pic_height - 1),
+					ff_h264_thread_await_progress(h, ref_pic,
+                                             FFMIN(row * 2 + ref_field, pic_height - 1),
                                              0);
 				} else if (FIELD_PICTURE) {
-                    ff_thread_await_progress(&ref_pic->f,
+					ff_h264_thread_await_progress(h, ref_pic,
                                              FFMIN(row, pic_height - 1),
                                              ref_field);
 				} else {
-                    ff_thread_await_progress(&ref_pic->f,
+					ff_h264_thread_await_progress(h, ref_pic,
                                              FFMIN(row, pic_height - 1),
                                              0);
+
 				}
+
 			}
 		}
 }
+
+// EDIT JB thread_await for multi_threading
+void ff_h264_thread_await_progress(H264Context *h, Picture *ref_pic, int n, int field){
+	H264Context* h_base = h->mvc_context[0]?h->mvc_context[0]:h;
+	int ref_view = h_base->voidx_list[ref_pic->view_id]  + (MAX_VIEW_COUNT*2);
+	int ref_field = (!!field) + (h_base->voidx_list[h->view_id] * 2); // field should be either 0 or 1
+	ff_thread_await_progress(&ref_pic->f, n, ref_field);
+	if(h->voidx > 0){
+		ff_thread_await_progress(&ref_pic->f, ref_pic->frame_num , ref_view); //frame_num should be synced in across views
+	}
+}
+
+void ff_h264_thread_report_progress(H264Context *h, Picture *ref_pic, int n, int field){
+	H264Context* h_base = h->mvc_context[0]?h->mvc_context[0]:h;
+	int ref_field = (!!field) + (h_base->voidx_list[h->view_id] * 2); // field should be either 0 or 1
+	ff_thread_report_progress(&ref_pic->f, n, ref_field);
+}
+
+void ff_h264_thread_report_frame(H264Context *h){
+	H264Context* h_base = h->mvc_context[0]?h->mvc_context[0]:h;
+	int ref_view = h_base->voidx_list[h->view_id]  + (MAX_VIEW_COUNT * 2);
+	ff_thread_report_progress(&h->s.current_picture_ptr->f, h->s.current_picture_ptr->frame_num , ref_view); //frame_num should be synced in across views
+}
+// END EDIT
 
 static av_always_inline void mc_dir_part(H264Context *h, Picture *pic,
                                          int n, int square, int height,
@@ -1256,10 +1281,11 @@ av_cold int ff_h264_decode_init(AVCodecContext *avctx) {
 
 		s->avctx = avctx;
 		//s->avci = av_mallocz(sizeof(AVCodecInternal));
-		if(i == TARGET_VIEW_INDEX){
+		if(i == h->target_voidx){
 			s->buffer_internal = 0;
 		}else{
 			s->buffer_internal = 0;
+			//s->buffer_internal = 1;
 		}
 
 		common_init(h);
@@ -1582,14 +1608,10 @@ int ff_h264_frame_start(H264Context *h)
 static void decode_postinit(H264Context *h, int setup_finished)
 {
 	MpegEncContext * const s = &h->s;
-	H264Context *h_main;
+	H264Context *h_base = h->mvc_context[0]?h->mvc_context[0]:h;
 	Picture *out = s->current_picture_ptr;
 	Picture *cur = s->current_picture_ptr;
 	int i, pics, out_of_order, out_idx, inter_view_pics;
-	h_main = h->mvc_context[0];
-	if(!h_main){
-		h_main = h;
-	}
 
 	s->current_picture_ptr->f.qscale_type = FF_QSCALE_TYPE_H264;
 	s->current_picture_ptr->f.pict_type = s->pict_type;
@@ -1723,7 +1745,7 @@ static void decode_postinit(H264Context *h, int setup_finished)
 		pics++;
 	inter_view_pics = 0;
 	for(i= 0; i< MAX_VIEW_COUNT; i++){
-		if(h_main->inter_ref_list[i] && h->is_mvc){
+		if(h_base->inter_ref_list[i] && h->is_mvc){
 			inter_view_pics++;
 		}
 
@@ -1765,7 +1787,7 @@ static void decode_postinit(H264Context *h, int setup_finished)
 			h->next_outputed_poc = out->poc;
 	} else {
 		// JB this error flows every time!  check what out_of_order is.
-		av_log(s->avctx, AV_LOG_DEBUG, "no picture %s\n", out_of_order ? "ooo" : "");
+		//av_log(s->avctx, AV_LOG_DEBUG, "no picture %s\n", out_of_order ? "ooo" : "");
 	}
 
 	if (h->next_output_pic && h->next_output_pic->sync) {
@@ -2887,11 +2909,11 @@ static int field_end(H264Context *h, int in_setup)
 	s->mb_y = 0;
 
 	if (!in_setup && !s->dropable)
-		ff_thread_report_progress(&s->current_picture_ptr->f, INT_MAX,
+		ff_h264_thread_report_progress(h, s->current_picture_ptr, INT_MAX,
 				s->picture_structure == PICT_BOTTOM_FIELD);
 
     if (CONFIG_H264_VDPAU_DECODER &&
-        s->avctx->codec->capabilities & CODEC_CAP_HWACCEL_VDPAU)
+        (s->avctx->codec->capabilities & CODEC_CAP_HWACCEL_VDPAU) )
 		ff_vdpau_h264_set_reference_frames(s);
 
 	if (in_setup || !(avctx->active_thread_type & FF_THREAD_FRAME)) {
@@ -3005,6 +3027,7 @@ static int decode_slice_header(H264Context *h, H264Context *h0)
 {
 	MpegEncContext * const s = &h->s;
 	MpegEncContext * const s0 = &h0->s;
+	H264Context *h_base = h0->mvc_context[0];
 	unsigned int first_mb_in_slice;
 	unsigned int pps_id;
 	int num_ref_idx_active_override_flag;
@@ -3013,6 +3036,10 @@ static int decode_slice_header(H264Context *h, H264Context *h0)
 	int last_pic_structure, last_pic_dropable;
 	int must_reinit;
 	u_int8_t field_pic_flag;
+
+	if(!h_base){
+		h_base = h0;
+	}
 
 	/* FIXME: 2tap qpel isn't implemented for high bit depth. */
     if ((s->avctx->flags2 & CODEC_FLAG2_FAST) &&
@@ -3035,7 +3062,7 @@ static int decode_slice_header(H264Context *h, H264Context *h0)
 		if (!s0->first_field) {
             if (s->current_picture_ptr && !s->dropable &&
                 s->current_picture_ptr->owner2 == s) {
-				ff_thread_report_progress(&s->current_picture_ptr->f, INT_MAX,
+            	ff_h264_thread_report_progress(h,s->current_picture_ptr, INT_MAX,
 						s->picture_structure == PICT_BOTTOM_FIELD);
 			}
 			s->current_picture_ptr = NULL;
@@ -3247,13 +3274,39 @@ static int decode_slice_header(H264Context *h, H264Context *h0)
 		 * which acts as DPB to s->picture_count = 32* s->avctx->thread_count
 		 * ff_h264_realloc_DPB
 		 */
- 		ff_h264_init_picture_count(h, s);
-		// END EDIT
+        if(h0->voidx == 0){
+			ff_h264_init_picture_count(h, s);
+
+        }
+        // END EDIT
 
 		if (ff_MPV_common_init(s) < 0) {
 			av_log(h->s.avctx, AV_LOG_ERROR, "ff_MPV_common_init() failed.\n");
 			return -1;
 		}
+
+		// EDIT
+		if( (h0->voidx != 0) 	// check if not in base view
+			&& (s->picture != h_base->s.picture) ){ // check if not already done
+
+			// free dpb and link it to the base view
+			if (s->picture && !s->avctx->internal->is_copy) {
+				for (i = 0; i < s->picture_count; i++) {
+					free_picture(s, &s->picture[i]);
+				}
+			}
+			av_freep(&s->picture);
+
+			// link DPB to main context
+			s->picture = h_base->s.picture;
+
+			// set corresponding values
+			s->max_picture_count = h_base->s.max_picture_count;
+			s->picture_range_start = h_base->s.picture_range_start;
+			s->picture_range_end = h_base->s.picture_range_end;
+			s->mvc_dbp_initialized = 1;
+        }
+		// END EDIT
 
 		s->first_field = 0;
 		h->prev_interlaced_frame = 1;
@@ -3395,7 +3448,7 @@ static int decode_slice_header(H264Context *h, H264Context *h0)
 
 			/* Mark old field/frame as completed */
 			if (!last_pic_dropable && s0->current_picture_ptr->owner2 == s0) {
-				ff_thread_report_progress(&s0->current_picture_ptr->f, INT_MAX,
+				ff_h264_thread_report_progress(h, s0->current_picture_ptr, INT_MAX,
 						last_pic_structure == PICT_BOTTOM_FIELD);
 			}
 
@@ -3404,7 +3457,7 @@ static int decode_slice_header(H264Context *h, H264Context *h0)
 				/* Previous field is unmatched. Don't display it, but let it
 				 * remain for reference if marked as such. */
 				if (!last_pic_dropable && last_pic_structure != PICT_FRAME) {
-					ff_thread_report_progress(&s0->current_picture_ptr->f, INT_MAX,
+					ff_h264_thread_report_progress(h, s0->current_picture_ptr, INT_MAX,
 							last_pic_structure == PICT_TOP_FIELD);
 				}
 			} else {
@@ -3414,7 +3467,7 @@ static int decode_slice_header(H264Context *h, H264Context *h0)
 					 * pair. Throw away previous field except for reference
 					 * purposes. */
 					if (!last_pic_dropable && last_pic_structure != PICT_FRAME) {
-						ff_thread_report_progress(&s0->current_picture_ptr->f, INT_MAX,
+						ff_h264_thread_report_progress(h, s0->current_picture_ptr, INT_MAX,
 								last_pic_structure == PICT_TOP_FIELD);
 					}
 				} else {
@@ -3461,8 +3514,8 @@ static int decode_slice_header(H264Context *h, H264Context *h0)
 			h->prev_frame_num++;
 			h->prev_frame_num %= 1 << h->sps.log2_max_frame_num;
 			s->current_picture_ptr->frame_num = h->prev_frame_num;
-			ff_thread_report_progress(&s->current_picture_ptr->f, INT_MAX, 0);
-			ff_thread_report_progress(&s->current_picture_ptr->f, INT_MAX, 1);
+			ff_h264_thread_report_progress(h, s->current_picture_ptr, INT_MAX, 0);
+			ff_h264_thread_report_progress(h, s->current_picture_ptr, INT_MAX, 1);
 			ff_generate_sliding_window_mmcos(h);
             if (ff_h264_execute_ref_pic_marking(h, h->mmco, h->mmco_index) < 0 &&
                 (s->avctx->err_recognition & AV_EF_EXPLODE))
@@ -3500,7 +3553,7 @@ static int decode_slice_header(H264Context *h, H264Context *h0)
 				s0->first_field = FIELD_PICTURE;
 			} else {
 				if (s0->current_picture_ptr->frame_num != h->frame_num) {
-					ff_thread_report_progress((AVFrame*) s0->current_picture_ptr, INT_MAX,
+					ff_h264_thread_report_progress(h, s0->current_picture_ptr, INT_MAX,
 							s0->picture_structure == PICT_BOTTOM_FIELD);
 					/* This and the previous field had different frame_nums.
 					 * Consider this field first in pair. Throw away previous
@@ -4224,7 +4277,7 @@ static void decode_finish_row(H264Context *h)
     if (s->dropable)
         return;
 
-	ff_thread_report_progress(&s->current_picture_ptr->f, top + height - 1,
+	ff_h264_thread_report_progress(h, s->current_picture_ptr, top + height - 1,
 			s->picture_structure == PICT_BOTTOM_FIELD);
 }
 
@@ -4394,6 +4447,7 @@ static int decode_slice(struct AVCodecContext *avctx, void *arg)
 			}
 		}
 	}
+	ff_h264_thread_report_frame(h);
 	return 0;
 }
 
@@ -4650,7 +4704,7 @@ again:
 
 				if (h->current_slice == 1) {
                     if (!(s->flags2 & CODEC_FLAG2_CHUNKS))
-						decode_postinit(h, nal_index >= nals_needed);
+						decode_postinit(h, nal_index >= nals_needed && h->target_voidx <= h->voidx);
 
                     if (s->avctx->hwaccel &&
                         s->avctx->hwaccel->start_frame(s->avctx, NULL, 0) < 0)
@@ -4809,7 +4863,7 @@ again:
 	/* clean up */
     if (s->current_picture_ptr && s->current_picture_ptr->owner2 == s &&
         !s->dropable) {
-		ff_thread_report_progress(&s->current_picture_ptr->f, INT_MAX,
+		ff_h264_thread_report_progress(h, s->current_picture_ptr, INT_MAX,
                                   s->picture_structure == PICT_BOTTOM_FIELD);
 	}
 
@@ -5008,7 +5062,7 @@ static int decode_frame_single_view(H264Context *h, void *data, int *data_size, 
 	}
 
 	if (!(s->flags2 & CODEC_FLAG2_CHUNKS) || (s->mb_y >= s->mb_height && s->mb_height)) {
-		if (s->flags2 & CODEC_FLAG2_CHUNKS) decode_postinit(h, 1);
+		if (s->flags2 & CODEC_FLAG2_CHUNKS) decode_postinit(h, h->target_voidx <= h->voidx);
 
 		field_end(h, 0);
 
@@ -5022,6 +5076,8 @@ static int decode_frame_single_view(H264Context *h, void *data, int *data_size, 
 
 	assert(pict->data[0] || !*data_size);
 	ff_print_debug_info(s, pict);
+
+
 
 	av_log(h->s.avctx, AV_LOG_INFO, "NAL unit type %2d decoded: View %d , Poc %5d, Frame %3d, Temporal ID %3d, %s picture .\n", h->nal_unit_type, h->view_id, h->s.current_picture_ptr->poc, h->frame_num, h->temporal_id ,h->anchor_pic_flag?"Anchor":"Non-Anchor" );
 
@@ -5037,12 +5093,24 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
 
 	int frame_end, consumed = 0;
 	int out_idx = buf_size;
-	int target_view_index = 7;
+
+	// CONFIG
+	int TARGET_VIEW_INDEX = 7;					///< index of the output view in view id list
+	uint8_t DECODE_ONLY_NECESSARY_VIEWS = 1;	///< decode only necessary views, skip others
+	// END CONFIG
 
 	AVFrame out[MAX_VIEW_COUNT];
 	int out_size[MAX_VIEW_COUNT];
 
+	// auto correct config
+	if( (TARGET_VIEW_INDEX < 0) || (TARGET_VIEW_INDEX >= MAX_VIEW_COUNT)){
+		// auto reset index to first view, if no MVC is available, or target view is wrong
+		TARGET_VIEW_INDEX = 0;
+	}
+	DECODE_ONLY_NECESSARY_VIEWS = !! DECODE_ONLY_NECESSARY_VIEWS;
+
 	ff_h264_extract_Context(avctx, &h, 0);
+	h->target_voidx = TARGET_VIEW_INDEX;
 
 	if (h->is_avc && buf_size >= 9 && buf[0] == 1 && buf[2] == 0 && (buf[4] & 0xFC) == 0xFC // buf[4] == 111111xx
 	&& (buf[5] & 0x1F) 		// buf[5]  & 00011111
@@ -5066,8 +5134,6 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
 	}
 	not_extra:
 
-	i = 0;
-
 	for(i = 0; i<MAX_VIEW_COUNT; i++){
 
 //		if(i==0){
@@ -5077,18 +5143,22 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
 //			h->s.picture = h0->s.picture;
 //		}
 		ff_h264_extract_Context(avctx, &h,i);
+		h->target_voidx = TARGET_VIEW_INDEX;
 
 		frame_end = ff_h264_find_mvc_frame_end(h, buf+buf_idx, buf_size-buf_idx);
-		consumed = decode_frame_single_view(h, &out[i], &out_size[i], buf+buf_idx, frame_end);
-		if(consumed >=0){
-			buf_idx += consumed;
-		}else{
-			return -1;
-		}
-		if(frame_end-consumed){
-			av_log(h->s.avctx, AV_LOG_INFO, "Decode frame on view %d has consumed %d bytes and skipped %d bytes\n", h->view_id, consumed, frame_end-consumed);
-		}else{
-		//	av_log(h->s.avctx, AV_LOG_INFO, "Decode frame on view %d has consumed %d bytes\n", h->view_id, consumed);
+		if(i <= TARGET_VIEW_INDEX || !DECODE_ONLY_NECESSARY_VIEWS){
+
+			consumed = decode_frame_single_view(h, &out[i], &out_size[i], buf+buf_idx, frame_end);
+			if(consumed >=0){
+				buf_idx += consumed;
+			}else{
+				return -1;
+			}
+			if(frame_end-consumed){
+				av_log(h->s.avctx, AV_LOG_INFO, "Decode frame on view %d has consumed %d bytes and skipped %d bytes\n", h->view_id, consumed, frame_end-consumed);
+			}else{
+			//	av_log(h->s.avctx, AV_LOG_INFO, "Decode frame on view %d has consumed %d bytes\n", h->view_id, consumed);
+			}
 		}
 		if(frame_end >= buf_size){
 			out_idx = buf_size - buf_idx;
@@ -5096,13 +5166,16 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
 		}
 	}
 
-	// auto reset index to first view, if no MVC is available, or target view is wrong
-	if(!h->is_mvc || target_view_index < 0 || target_view_index >= MAX_VIEW_COUNT){
-		target_view_index = 0;
+
+	if(!h->is_mvc){
+		// auto reset index to first view, if no MVC is available, or target view is wrong
+		TARGET_VIEW_INDEX = 0;
 	}
 
-	*pict = out[target_view_index];
-	*data_size = out_size[target_view_index];
+	ff_thread_finish_setup(avctx); // could be twice
+
+	*pict = out[TARGET_VIEW_INDEX];
+	*data_size = out_size[TARGET_VIEW_INDEX];
 
 	return out_idx;
 }

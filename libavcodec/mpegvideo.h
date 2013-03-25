@@ -820,6 +820,7 @@ void ff_copy_picture(Picture *dst, Picture *src);
  * The pixels are allocated/set by calling get_buffer() if shared = 0.
  */
 int ff_alloc_picture(MpegEncContext *s, Picture *pic, int shared);
+void free_picture(MpegEncContext *s, Picture *pic);
 
 extern const enum PixelFormat ff_pixfmt_list_420[];
 extern const enum PixelFormat ff_hwaccel_pixfmt_list_420[];
@@ -837,6 +838,8 @@ static inline void ff_update_block_index(MpegEncContext *s){
     s->dest[1]+= block_size;
     s->dest[2]+= block_size;
 }
+
+
 
 static inline int get_bits_diff(MpegEncContext *s){
     const int bits= put_bits_count(&s->pb);
