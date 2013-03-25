@@ -131,8 +131,9 @@ int ff_h264_fill_default_ref_list(H264Context *h){
             len= add_sorted(sorted    , h->short_ref, h->short_ref_count, cur_poc, 1^list);
             len+=add_sorted(sorted+len, h->short_ref, h->short_ref_count, cur_poc, 0^list);
             assert(len<=32);
-            len= build_def_list(h->default_ref_list[list]    , sorted     , len, 0, s->picture_structure);
-            len+=build_def_list(h->default_ref_list[list]+len, h->long_ref, 16 , 1, s->picture_structure);
+            len = build_def_list(h->default_ref_list[list]    , sorted     , len, 0, s->picture_structure);
+            len+= build_def_list(h->default_ref_list[list]+len, h->long_ref, 16 , 1, s->picture_structure);
+            len+= ff_h264_build_default_inter_ref_list(h, h->default_ref_list[list]+len, list, h->ref_count[list]-len);
             assert(len<=32);
             if(len < h->ref_count[list])
                 memset(&h->default_ref_list[list][len], 0, sizeof(Picture)*(h->ref_count[list] - len));
@@ -146,7 +147,8 @@ int ff_h264_fill_default_ref_list(H264Context *h){
         }
     }else{
         len = build_def_list(h->default_ref_list[0]    , h->short_ref, h->short_ref_count, 0, s->picture_structure);
-        len+= build_def_list(h->default_ref_list[0]+len, h-> long_ref, 16                , 1, s->picture_structure);
+        len+= build_def_list(h->default_ref_list[0]+len, h-> long_ref, 16, 1, s->picture_structure);
+        len+= ff_h264_build_default_inter_ref_list(h, h->default_ref_list[0]+len, 0, h->ref_count[0]-len);
         assert(len <= 32);
         if(len < h->ref_count[0]){
             memset(&h->default_ref_list[0][len], 0, sizeof(Picture)*(h->ref_count[0] - len));
@@ -457,14 +459,6 @@ void ff_h264_remove_all_refs(H264Context *h){
 	}
 	h->short_ref_count=0;
 
-//	for (i = 0; i < MAX_VIEW_COUNT; i++){
-//		if(h->inter_ref_list[i] && h->inter_ref_list[i]->f.data[0]){
-//			 unreference_pic(h, h->inter_ref_list[i], 0);
-//		}
-//		h->inter_ref_list[i] = NULL;
-//	}
-//	h->inter_ref_count = 0;
-
 }
 
 /**
@@ -614,7 +608,6 @@ int ff_h264_execute_ref_pic_marking(H264Context *h, MMCO *mmco, int mmco_count){
         default: assert(0);
         }
     }
-
     if (!current_ref_assigned) {
     	H264Context *h_main = h->mvc_context[0];
 		if(!h_main){
@@ -647,23 +640,25 @@ int ff_h264_execute_ref_pic_marking(H264Context *h, MMCO *mmco, int mmco_count){
 
 
             h->short_ref[0] = s->current_picture_ptr;
+            h->short_ref_count++;
+            s->current_picture_ptr->f.reference |= s->picture_structure;
+
             // EDIT JB short and inter_view references are set here!
             if(h->inter_view_flag){
-				s->current_picture_ptr->view_id = h->view_id;
-				if(h_main->inter_ref_list[h->view_id]){
+            	if(h_main->inter_ref_list[h->view_id]){
 					h_main->inter_ref_list[h->view_id]->f.reference &= ~INTER_PIC_REF;
 				}else{
 					h_main->inter_ref_count++;
 				}
 				h_main->inter_ref_list[h->view_id] = s->current_picture_ptr;
+
+				s->current_picture_ptr->view_id = h->view_id;
 				s->current_picture_ptr->f.reference |= INTER_PIC_REF;
 				s->current_picture_ptr->inter_ref = 1;
 			}else{
 				s->current_picture_ptr->inter_ref = 0;
 			}
             // END EDIT
-            h->short_ref_count++;
-            s->current_picture_ptr->f.reference |= s->picture_structure;
         }
     }
 

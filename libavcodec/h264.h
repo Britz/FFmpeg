@@ -771,7 +771,6 @@ typedef struct H264Context {
 	// NAL Unit Type 14 or 20
 	uint8_t svc_extension_flag;
 
-
 	// NAL SVC extension
 	uint8_t idr_flag;
 	int priority_id;
@@ -792,7 +791,6 @@ typedef struct H264Context {
 	uint8_t anchor_pic_flag;
 	uint8_t inter_view_flag;
 	uint8_t non_idr_flag;
-	uint8_t non_idr_present;
 
 	// END EDIT
 

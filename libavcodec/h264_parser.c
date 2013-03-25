@@ -295,8 +295,10 @@ static inline int parse_nal_units(AVCodecParserContext *s,
 		// JB 7.3.2.13 Slice layer extension
 		// @author: Jochen Britz
 		nal_slice:
-		// END EDIT
+
 				slice_count++;
+		// END EDIT
+
 				get_ue_golomb_long(&h->s.gb);  // skip first_mb_in_slice
 				slice_type = get_ue_golomb_31(&h->s.gb);
 				s->pict_type = golomb_to_pict_type[slice_type % 5];

@@ -16,9 +16,9 @@
 #include "h264.h"
 
 enum SVCAVPictureType {
-    AV_PICTURE_TYPE_EI = AV_PICTURE_TYPE_I,
-    AV_PICTURE_TYPE_EP = AV_PICTURE_TYPE_P,
-    AV_PICTURE_TYPE_EB = AV_PICTURE_TYPE_B
+	AV_PICTURE_TYPE_EI = AV_PICTURE_TYPE_I,
+	AV_PICTURE_TYPE_EP = AV_PICTURE_TYPE_P,
+	AV_PICTURE_TYPE_EB = AV_PICTURE_TYPE_B
 };
 
 // ==================================================================== //
@@ -29,7 +29,6 @@ enum SVCAVPictureType {
  * 	Returns the minimum of two integer values
  */
 int min(int a, int b);
-
 
 /** MAX
  * 	Returns the maximum of two integer values
@@ -46,7 +45,8 @@ int max(int a, int b);
  *  return MpegEncContext
  */
 MpegEncContext* ff_h264_extract_Context(const AVCodecContext * avctx, H264Context** h, int voidx);
-MpegEncContext* ff_h264_extract_parser_Context(const AVCodecParserContext* avctx, H264Context** h, int voidx);
+MpegEncContext* ff_h264_extract_parser_Context(const AVCodecParserContext* avctx, H264Context** h,
+		int voidx);
 MpegEncContext* ff_h264_get_MpegEncContext(H264Context *h);
 int ff_h264_find_mvc_frame_end(H264Context *h, const uint8_t *buf, int buf_size);
 /** INIT H264Context
@@ -73,7 +73,7 @@ int save_SPS(H264Context *h, SPS* sps, uint8_t activate_it);
  * 	Activates the SPS.
  * 	Depending on the current NAL unit type, the SPS is taken from the sps_buffer or the sub_sps_buffer.
  *
-* 	@param h		pointer to the H264Context. !WARNING: this context have to be a main and not a threaded context!
+ * 	@param h		pointer to the H264Context. !WARNING: this context have to be a main and not a threaded context!
  *	@param sps_id	id of the SPS, which should be activated.
  *	@return SPS*    \li{Success: the pointer to the activated SPS} \li{Error: 0}
  */
@@ -111,14 +111,12 @@ PPS* get_PPS(H264Context *h0, H264Context *h, uint pps_id, uint8_t activate_it);
  */
 void ff_h264_decode_sps_ext(H264Context *h, SPS *sps);
 
-
 /** 7.3.2.1.3
  * 	Subset sequence parameter set RBSP syntax
  *
  * 	subset_seq_parameter_set_rbsp()
  */
 int ff_h264_decode_sub_sps(H264Context *h, int bit_length);
-
 
 /** 7.3.2.10
  * 	RBSP slice trailing bits syntax
@@ -127,14 +125,12 @@ int ff_h264_decode_sub_sps(H264Context *h, int bit_length);
  */
 int ff_h264_decode_slice_trailing_bits(H264Context *h);
 
-
 /** 7.3.2.11
  * 	RBSP trailing bits syntax
  *
  * 	rbsp_trailing_bits()
  */
 int ff_h264_decode_trailing_bits(H264Context *h);
-
 
 /** 7.3.2.12
  * 	Prefix NAL unit RBSP syntax
@@ -151,7 +147,6 @@ void ff_h264_decode_nal_prefix(H264Context *h, int bit_length);
  */
 void ff_h264_decode_slice_ext(H264Context *h);
 
-
 /** 7.3.3
  * 	Slice header syntax
  *
@@ -161,14 +156,12 @@ void ff_h264_decode_slice_ext(H264Context *h);
  */
 int ff_h264_decode_slice_header(H264Context *h);
 
-
 /**	7.3.4
  * 	Slice data syntax
  *
  *	slice_data()
  */
 void ff_h264_decode_slice_data(H264Context *h, SPS *sps);
-
 
 /** 7.4.2.1.1
  * 	Sequence parameter set data semantics
@@ -184,7 +177,6 @@ void ff_h264_decode_slice_data(H264Context *h, SPS *sps);
  */
 int ff_h264_chroma_array_type(H264Context *h, SPS *sps);
 
-
 // ==================================================================== //
 //  							ANNEX G									//
 // ==================================================================== //
@@ -196,7 +188,6 @@ int ff_h264_chroma_array_type(H264Context *h, SPS *sps);
  */
 void ff_h264_svc_decode_nal_header(H264Context *h);
 
-
 /** G.7.3.2.1.4
  * 	Sequence parameter set SVC extension syntax
  *
@@ -204,14 +195,12 @@ void ff_h264_svc_decode_nal_header(H264Context *h);
  */
 void ff_h264_svc_decode_sps(H264Context *h, SPS *sps);
 
-
 /** G.7.3.2.12.1
  * 	Prefix NAL unit SVC syntax
  *
  *	prefix_nal_unit_svc( )
  */
 void ff_h264_svc_decode_nal_prefix(H264Context *h, int bit_length);
-
 
 /** G.7.3.3.4
  * 	Slice header in scalable extension syntax
@@ -221,14 +210,12 @@ void ff_h264_svc_decode_nal_prefix(H264Context *h, int bit_length);
 int ff_h264_svc_decode_slice_header(H264Context *h);
 int ff_h264_svc_decode_slice_header_threaded(H264Context *h, H264Context *h0);
 
-
 /** G.7.3.3.5
  *  Decoded reference base picture marking syntax
  *
  *  dec_ref_base_pic_marking()
  */
 int ff_h264_decode_ref_base_pic_marking(H264Context *h);
-
 
 // ==================================================================== //
 //  							ANNEX G									//
@@ -254,7 +241,7 @@ void ff_h264_mvc_decode_sps(H264Context *h, SPS *sps);
  *  ref_pic_list_mvc_modification()
  */
 int ff_h264_mvc_reorder_ref_pic_list(H264Context *h, SPS* sps);
-
+int ff_h264_build_default_inter_ref_list(H264Context* h, Picture *ref_list, int list, int len);
 /** H.7.4.1.1
  *  NAL unit header MVC extension semantics
  *
@@ -313,6 +300,5 @@ void ff_h264_init_picture_count(H264Context *h, MpegEncContext *s);
  *  mvc_vui_parameters_extension()
  */
 int ff_h264_mvc_decode_vui_parameters(H264Context *h, SPS *sps);
-
 
 #endif /* H264MVC_H_ */
