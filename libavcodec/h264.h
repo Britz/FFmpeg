@@ -1113,4 +1113,11 @@ static av_always_inline int get_dct8x8_allowed(H264Context *h) {
 						* 0x0001000100010001ULL));
 }
 
+static const AVOption h264_options[] = { { "is_avc", "is avc", offsetof(H264Context, is_avc),
+		FF_OPT_TYPE_INT, { .dbl = 0 }, 0, 1, 0 }, { "nal_length_size", "nal_length_size",
+		offsetof(H264Context, nal_length_size), FF_OPT_TYPE_INT, { .dbl = 0 }, 0, 4, 0 }, { NULL } };
+
+static const AVClass h264_class = { "H264 Decoder", av_default_item_name, h264_options,
+		LIBAVUTIL_VERSION_INT, };
+
 #endif /* AVCODEC_H264_H */

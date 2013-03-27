@@ -1641,7 +1641,9 @@ void ff_h264_mvc_realloc_dpb(H264Context *h) {
 /* H.10.2.1 */
 void ff_h264_init_picture_count(H264Context *h, MpegEncContext *s){
 	H264Context *h_base = h->mvc_context[0]?h->mvc_context[0]:h;
-	int i;
+	int i,n;
+
+	n=4;
 
 	if(h->is_mvc && !s->mvc_dbp_initialized) {
 		SPS* sps = &h->sps;
@@ -1654,7 +1656,7 @@ void ff_h264_init_picture_count(H264Context *h, MpegEncContext *s){
 			}
 		}
 
-		s->max_picture_count = FFMAX(MAX_PICTURE_COUNT, 2*MAX_PICTURE_COUNT*ceil(log2(sps->num_views_minus1 + 1)));
+		s->max_picture_count = FFMAX(MAX_PICTURE_COUNT,n*MAX_PICTURE_COUNT*ceil(log2(sps->num_views_minus1 + 1)));
 		//s->max_picture_count = MAX_PICTURE_COUNT;
 		if(s->picture_range_end - s->picture_range_start < s->max_picture_count){
 			s->picture_range_start = (s->picture_range_start/MAX_PICTURE_COUNT)*s->max_picture_count;

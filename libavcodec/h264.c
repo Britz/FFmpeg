@@ -1266,6 +1266,7 @@ av_cold int ff_h264_decode_init(AVCodecContext *avctx) {
 	int i, view_id;
 	// H264Context *h = avctx->priv_data;
 	// avctx->thread_count;
+	av_log(avctx, AV_LOG_INFO, "ff_h264_decode_init(AVCodecContext *avctx:%p)\n",avctx);
 	for(view_id = 0; view_id<MAX_VIEW_COUNT; view_id++){
 
 		MpegEncContext * const s = ff_h264_extract_Context(avctx, &h, view_id);
@@ -1376,6 +1377,8 @@ static int decode_init_thread_copy(AVCodecContext *avctx)
 {
 	// Only buffers of first context are used.
 	H264Context *h;
+	av_log(avctx, AV_LOG_INFO, "decode_init_thread_copy(AVCodecContext *avctx:%p)\n",avctx);
+
 	ff_h264_extract_Context(avctx, &h, 0);
 	// H264Context *h = avctx->priv_data;
 
@@ -1397,6 +1400,7 @@ static int decode_update_thread_context(AVCodecContext *dst, const AVCodecContex
 	H264Context *h, *h1;
 	int view_id = 0, err;
 
+	av_log(dst, AV_LOG_INFO, "decode_update_thread_context(AVCodecContext *dst:%p, const AVCodecContext *src:%p)\n",dst, src);
 	if (dst == src)
 		return 0;
 
@@ -2759,6 +2763,8 @@ static void flush_dpb(AVCodecContext *avctx) {
 	// EDIT JB extract_Context
 	H264Context *h;
 	int i,j;
+
+	av_log(avctx, AV_LOG_INFO, "flush_dpb(AVCodecContext *avctx:%p)\n",avctx);
 
 	// H264Context *h = avctx->priv_data;
 	for(i = 0; i<MAX_VIEW_COUNT; i++){
@@ -4289,6 +4295,8 @@ static int decode_slice(struct AVCodecContext *avctx, void *arg)
                                                    : 0x7F;
 	int lf_x_start = s->mb_x;
 
+	av_log(h->s.avctx, AV_LOG_INFO, "decode_slice(AVCodecContext *avctx:%p, void *arg:%p)\n",avctx,arg);
+
 	s->mb_skip_run = -1;
 
     h->is_complex = FRAME_MBAFF || s->picture_structure != PICT_FRAME ||
@@ -5085,6 +5093,7 @@ static int decode_frame_single_view(H264Context *h, void *data, int *data_size, 
 }
 
 static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPacket *avpkt) {
+
 	const uint8_t *buf = avpkt->data;
 	int buf_size = avpkt->size;
 	AVFrame *pict = data;
@@ -5108,6 +5117,8 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
 		TARGET_VIEW_INDEX = 0;
 	}
 	DECODE_ONLY_NECESSARY_VIEWS = !! DECODE_ONLY_NECESSARY_VIEWS;
+
+	av_log(avctx, AV_LOG_INFO, "decode_frame(AVCodecContext *avctx:%p , void *data:%p , int *data_size:%p, AVPacket *avpkt:%p)\n",avctx, data, data_size, avpkt);
 
 	ff_h264_extract_Context(avctx, &h, 0);
 	h->target_voidx = TARGET_VIEW_INDEX;
@@ -5210,6 +5221,8 @@ static av_cold int h264_decode_end(AVCodecContext *avctx) {
 	// EDIT JB extract_Context
 	H264Context *h;
 	int i= 0;
+	av_log(avctx, AV_LOG_INFO, "h264_decode_end(AVCodecContext *avctx:%p)\n",avctx);
+
 
 	// H264Context *h = avctx->priv_data;
 	for(i = 0; i<MAX_VIEW_COUNT; i++){
@@ -5237,12 +5250,7 @@ static const AVProfile profiles[] = { { FF_PROFILE_H264_BASELINE, "Baseline" }, 
 		FF_PROFILE_H264_HIGH_444_INTRA, "High 4:4:4 Intra" }, { FF_PROFILE_H264_CAVLC_444,
 		"CAVLC 4:4:4" }, { FF_PROFILE_UNKNOWN }, };
 
-static const AVOption h264_options[] = { { "is_avc", "is avc", offsetof(H264Context, is_avc),
-		FF_OPT_TYPE_INT, { .dbl = 0 }, 0, 1, 0 }, { "nal_length_size", "nal_length_size",
-		offsetof(H264Context, nal_length_size), FF_OPT_TYPE_INT, { .dbl = 0 }, 0, 4, 0 }, { NULL } };
 
-static const AVClass h264_class = { "H264 Decoder", av_default_item_name, h264_options,
-		LIBAVUTIL_VERSION_INT, };
 
 static const AVClass h264_vdpau_class = { "H264 VDPAU Decoder", av_default_item_name, h264_options,
 		LIBAVUTIL_VERSION_INT, };
@@ -5255,7 +5263,7 @@ AVCodec ff_h264_decoder = {
 		.init = ff_h264_decode_init,
 		.close = h264_decode_end,
 		.decode = decode_frame,
-		.capabilities =/*CODEC_CAP_DRAW_HORIZ_BAND |*/CODEC_CAP_DR1 | CODEC_CAP_DELAY | CODEC_CAP_SLICE_THREADS | !CODEC_CAP_FRAME_THREADS,
+		.capabilities =/*CODEC_CAP_DRAW_HORIZ_BAND |*/CODEC_CAP_DR1 | CODEC_CAP_DELAY | CODEC_CAP_SLICE_THREADS | CODEC_CAP_FRAME_THREADS,
 		.flush = flush_dpb,
 		.long_name = NULL_IF_CONFIG_SMALL("H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10"),
 		.init_thread_copy = ONLY_IF_THREADS_ENABLED(decode_init_thread_copy),
