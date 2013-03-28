@@ -412,8 +412,8 @@ typedef struct H264Context {
 	/**
 	 * Motion vector cache.
 	 */
-	DECLARE_ALIGNED(16, int16_t, mv_cache) [2][5 * 8][2];DECLARE_ALIGNED(8, int8_t, ref_cache) [2][5
-			* 8];
+    DECLARE_ALIGNED(16, int16_t, mv_cache)[2][5 * 8][2];
+    DECLARE_ALIGNED(8, int8_t, ref_cache)[2][5 * 8];
 #define LIST_NOT_USED -1 // FIXME rename?
 #define PART_NOT_AVAILABLE -2
 
@@ -481,28 +481,16 @@ typedef struct H264Context {
 	int map_col_to_list0[2][16 + 32];
 	int map_col_to_list0_field[2][2][16 + 32];
 
-	// EDIT JB multiple reference lists for mvc support
-
 	/**
 	 * num_ref_idx_l0/1_active_minus1 + 1
 	 */
-	unsigned int ref_count[2]; ///< counts frames or fields, depending on current mb mode
+	unsigned int ref_count[2]; 		///< counts frames or fields, depending on current mb mode
 	unsigned int list_count;
-	uint8_t *list_counts; ///< Array of list_count per MB specifying the slice type
-	Picture ref_list[2][48]; /**< 0..15: frame refs, 16..47: mbaff field refs.
-	 *   Reordered version of default_ref_list
-	 *   according to picture reordering in slice header */
-	int ref2frm[MAX_SLICES][2][64]; ///< reference to frame number lists, used in the loop filter, the first 2 are for -2,-1
-
-
-	//unsigned int ref_count[2]; ///< counts frames or fields, depending on current mb mode
-	//unsigned int list_count;
-	//uint8_t *list_counts; ///< Array of list_count per MB specifying the slice type
-	//Picture ref_list[2][48]; /**< 0..15: frame refs, 16..47: mbaff field refs.
-	// *   Reordered version of default_ref_list
-	// *   according to picture reordering in slice header */
-	//int ref2frm[MAX_SLICES][2][64]; ///< reference to frame number lists, used in the loop filter, the first 2 are for -2,-1
-	//  END EDIT
+	uint8_t *list_counts; 				///< Array of list_count per MB specifying the slice type
+	Picture ref_list[2][48]; 			/**< 0..15: frame refs, 16..47: mbaff field refs.
+										 *   Reordered version of default_ref_list
+	 								 	 *   according to picture reordering in slice header */
+	int ref2frm[MAX_SLICES][2][64]; 	///< reference to frame number lists, used in the loop filter, the first 2 are for -2,-1
 
 
 	// data partitioning
@@ -529,7 +517,8 @@ typedef struct H264Context {
 	/* chroma_pred_mode for i4x4 or i16x16, else 0 */
 	uint8_t *chroma_pred_mode_table;
 	int last_qscale_diff;
-	uint8_t (*mvd_table[2])[2];DECLARE_ALIGNED(16, uint8_t, mvd_cache) [2][5 * 8][2];
+    uint8_t (*mvd_table[2])[2];
+    DECLARE_ALIGNED(16, uint8_t, mvd_cache)[2][5 * 8][2];
 	uint8_t *direct_table;
 	uint8_t direct_cache[5 * 8];
 
@@ -575,12 +564,7 @@ typedef struct H264Context {
 	SPS *sps_buffers[MAX_SPS_COUNT];
 	PPS *pps_buffers[MAX_PPS_COUNT];
 
-	// EDIT for MVC support
-	// JB sub_sps_buffer
-	// @author: Jochen Britz
-	SPS *sub_sps_buffers[MAX_SPS_COUNT]; /* Buffer for the subset sequence parameter sets used for non base views */
-	// END EDIT
-
+	
 
 	int dequant_coeff_pps;      ///< reinit tables when pps changes
 
@@ -610,7 +594,6 @@ typedef struct H264Context {
 
 	int redundant_pic_count;
 
-	// EDIT JB multiple references list for multi view support
 	Picture *short_ref[32];
 	Picture *long_ref[32];
 	Picture default_ref_list[2][32]; ///< base reference list for all slices of a coded picture
@@ -621,18 +604,6 @@ typedef struct H264Context {
 	int outputed_poc;
 	int next_outputed_poc;
 
-	//Picture *short_ref[32];
-	//Picture *long_ref[32];
-	//Picture default_ref_list[2][32]; ///< base reference list for all slices of a coded picture
-	//Picture *delayed_pic[MAX_DELAYED_PIC_COUNT + 2]; // FIXME size?
-
-
-	//int last_pocs[MAX_DELAYED_PIC_COUNT];
-	//Picture *next_output_pic;
-	//int outputed_poc;
-	//int next_outputed_poc;
-
-
 	/**
 	 * memory management control operations buffer.
 	 */
@@ -642,15 +613,6 @@ typedef struct H264Context {
 
 	int long_ref_count;     ///< number of actual long term references
 	int short_ref_count;    ///< number of actual short term references
-	int inter_ref_count;    ///< number of actual inter view references
-
-
-	//MMCO mmco[MAX_MMCO_COUNT];
-	//int mmco_index;
-	//int mmco_reset;
-	//int long_ref_count;     ///< number of actual long term references
-	//int short_ref_count;    ///< number of actual short term references
-	// END EDIT
 
 	int cabac_init_idc;
 
@@ -749,15 +711,24 @@ typedef struct H264Context {
 	// EDIT for MVC support
 	// @author: Jochen Britz
 
+	// refrence list
+	Picture* inter_ref_list[MAX_VIEW_COUNT]; 		///< contains the pictures with inter_view_flag
+	int inter_ref_count;    						///< number of actual inter view references
+	 
+
+	// sub_sps_buffer
+	SPS *sub_sps_buffers[MAX_SPS_COUNT]; /* Buffer for the subset sequence parameter sets used for non base views */
+	
 	// just for easier handling of mvc (not in the standard)
 	u_int8_t is_mvc;   								///< signals, if MVC is available or not (NAL unit 14 or 20 received)
 	int base_view_id;  								///< view id of the base view, not the vOIdx of the base view!
-	Picture* inter_ref_list[MAX_VIEW_COUNT]; 		///< contains the pictures with inter_view_flag
-	struct H264Context* mvc_context[MAX_VIEW_COUNT];///< contains pointers to each view context indexed by vOIdx
-	int voidx;										///< view order index (vOIdx) of this context.
-	int target_voidx;								///< view order index (vOIdx) of target/output view.
-	int voidx_list[MAX_VIEW_COUNT];					///< list of vOIdx indexed by view_id.
+	int target_voidx;								///< highest view order index (vOIdx) of target/output views.
 	int idr_frame_num;
+	int voidx;										///< view order index (vOIdx) of this context.
+	int voidx_list[MAX_VIEW_COUNT];					///< list of vOIdx indexed by view_id.
+	
+	struct H264Context* mvc_context[MAX_VIEW_COUNT];///< contains pointers to each view context indexed by vOIdx
+
 
 	u_int8_t prefix_nal_present; 					///< signals, that informations of a prefix NAL unit are present for current NAL unit
 	int slice_nal_unit_type;						///< nal unit type of current slice
@@ -835,7 +806,8 @@ const uint8_t *ff_h264_decode_nal(H264Context *h, const uint8_t *src,
 /**
  * Free any data that may have been allocated in the H264 context
  * like SPS, PPS etc.
- */av_cold void ff_h264_free_context(H264Context *h);
+ */
+av_cold void ff_h264_free_context(H264Context *h);
 
 /**
  * Reconstruct bitstream slice_type.
@@ -902,25 +874,31 @@ void ff_h264_direct_dist_scale_factor(H264Context * const h);
 void ff_h264_direct_ref_list_init(H264Context * const h);
 void ff_h264_pred_direct_motion(H264Context * const h, int *mb_type);
 
-void ff_h264_filter_mb_fast(H264Context *h, int mb_x, int mb_y, uint8_t *img_y,
-		uint8_t *img_cb, uint8_t *img_cr, unsigned int linesize,
-		unsigned int uvlinesize);
-void ff_h264_filter_mb(H264Context *h, int mb_x, int mb_y, uint8_t *img_y,
-		uint8_t *img_cb, uint8_t *img_cr, unsigned int linesize,
-		unsigned int uvlinesize);
+void ff_h264_filter_mb_fast(H264Context *h, int mb_x, int mb_y,
+                            uint8_t *img_y, uint8_t *img_cb, uint8_t *img_cr,
+                            unsigned int linesize, unsigned int uvlinesize);
+void ff_h264_filter_mb(H264Context *h, int mb_x, int mb_y,
+                       uint8_t *img_y, uint8_t *img_cb, uint8_t *img_cr,
+                       unsigned int linesize, unsigned int uvlinesize);
 
 // JB ref_pic_list & seq_parameter_set
 // EDIT for MVC & SVC support
 // @author: Jochen Britz
-
 //int ff_h264_svc_decode_slice_header_threaded(H264Context *h, H264Context *h0);
 
 // generated headers for using static inline functions
 int pred_weight_table(H264Context *h);
 
+// moved to header to have access to it in H264_parser.c 
+static const AVOption h264_options[] = { { "is_avc", "is avc", offsetof(H264Context, is_avc),
+		FF_OPT_TYPE_INT, { .dbl = 0 }, 0, 1, 0 }, { "nal_length_size", "nal_length_size",
+		offsetof(H264Context, nal_length_size), FF_OPT_TYPE_INT, { .dbl = 0 }, 0, 4, 0 }, { NULL } };
+
+static const AVClass h264_class = { "H264 Decoder", av_default_item_name, h264_options,
+		LIBAVUTIL_VERSION_INT, };
+
 
 // END EDIT
-
 /**
  * Reset SEI values at the beginning of the frame.
  *
@@ -962,17 +940,24 @@ void ff_h264_reset_sei(H264Context *h);
 #define CHROMA_DC_BLOCK_INDEX 49
 
 // This table must be here because scan8[constant] must be known at compiletime
-static const uint8_t scan8[16 * 3 + 3] = { 4 + 1 * 8, 5 + 1 * 8, 4 + 2 * 8, 5
-		+ 2 * 8, 6 + 1 * 8, 7 + 1 * 8, 6 + 2 * 8, 7 + 2 * 8, 4 + 3 * 8, 5
-		+ 3 * 8, 4 + 4 * 8, 5 + 4 * 8, 6 + 3 * 8, 7 + 3 * 8, 6 + 4 * 8, 7
-		+ 4 * 8, 4 + 6 * 8, 5 + 6 * 8, 4 + 7 * 8, 5 + 7 * 8, 6 + 6 * 8, 7
-		+ 6 * 8, 6 + 7 * 8, 7 + 7 * 8, 4 + 8 * 8, 5 + 8 * 8, 4 + 9 * 8, 5
-		+ 9 * 8, 6 + 8 * 8, 7 + 8 * 8, 6 + 9 * 8, 7 + 9 * 8, 4 + 11 * 8, 5
-		+ 11 * 8, 4 + 12 * 8, 5 + 12 * 8, 6 + 11 * 8, 7 + 11 * 8, 6 + 12 * 8, 7
-		+ 12 * 8, 4 + 13 * 8, 5 + 13 * 8, 4 + 14 * 8, 5 + 14 * 8, 6 + 13 * 8, 7
-		+ 13 * 8, 6 + 14 * 8, 7 + 14 * 8, 0 + 0 * 8, 0 + 5 * 8, 0 + 10 * 8 };
+static const uint8_t scan8[16 * 3 + 3] = {
+    4 +  1 * 8, 5 +  1 * 8, 4 +  2 * 8, 5 +  2 * 8,
+    6 +  1 * 8, 7 +  1 * 8, 6 +  2 * 8, 7 +  2 * 8,
+    4 +  3 * 8, 5 +  3 * 8, 4 +  4 * 8, 5 +  4 * 8,
+    6 +  3 * 8, 7 +  3 * 8, 6 +  4 * 8, 7 +  4 * 8,
+    4 +  6 * 8, 5 +  6 * 8, 4 +  7 * 8, 5 +  7 * 8,
+    6 +  6 * 8, 7 +  6 * 8, 6 +  7 * 8, 7 +  7 * 8,
+    4 +  8 * 8, 5 +  8 * 8, 4 +  9 * 8, 5 +  9 * 8,
+    6 +  8 * 8, 7 +  8 * 8, 6 +  9 * 8, 7 +  9 * 8,
+    4 + 11 * 8, 5 + 11 * 8, 4 + 12 * 8, 5 + 12 * 8,
+    6 + 11 * 8, 7 + 11 * 8, 6 + 12 * 8, 7 + 12 * 8,
+    4 + 13 * 8, 5 + 13 * 8, 4 + 14 * 8, 5 + 14 * 8,
+    6 + 13 * 8, 7 + 13 * 8, 6 + 14 * 8, 7 + 14 * 8,
+    0 +  0 * 8, 0 +  5 * 8, 0 + 10 * 8
+};
 
-static av_always_inline uint32_t pack16to32(int a, int b) {
+static av_always_inline uint32_t pack16to32(int a, int b)
+{
 #if HAVE_BIGENDIAN
 	return (b & 0xFFFF) + (a << 16);
 #else
@@ -980,7 +965,8 @@ static av_always_inline uint32_t pack16to32(int a, int b) {
 #endif
 }
 
-static av_always_inline uint16_t pack8to16(int a, int b) {
+static av_always_inline uint16_t pack8to16(int a, int b)
+{
 #if HAVE_BIGENDIAN
 	return (b & 0xFF) + (a << 8);
 #else
@@ -991,14 +977,16 @@ static av_always_inline uint16_t pack8to16(int a, int b) {
 /**
  * Get the chroma qp.
  */
-static av_always_inline int get_chroma_qp(H264Context *h, int t, int qscale) {
+static av_always_inline int get_chroma_qp(H264Context *h, int t, int qscale)
+{
 	return h->pps.chroma_qp_table[t][qscale];
 }
 
 /**
  * Get the predicted intra4x4 prediction mode.
  */
-static av_always_inline int pred_intra_mode(H264Context *h, int n) {
+static av_always_inline int pred_intra_mode(H264Context *h, int n)
+{
 	const int index8 = scan8[n];
 	const int left = h->intra4x4_pred_mode_cache[index8 - 1];
 	const int top = h->intra4x4_pred_mode_cache[index8 - 8];
@@ -1012,7 +1000,8 @@ static av_always_inline int pred_intra_mode(H264Context *h, int n) {
 		return min;
 }
 
-static av_always_inline void write_back_intra_pred_mode(H264Context *h) {
+static av_always_inline void write_back_intra_pred_mode(H264Context *h)
+{
 	int8_t *i4x4 = h->intra4x4_pred_mode + h->mb2br_xy[h->mb_xy];
 	int8_t *i4x4_cache = h->intra4x4_pred_mode_cache;
 
@@ -1022,7 +1011,8 @@ static av_always_inline void write_back_intra_pred_mode(H264Context *h) {
 	i4x4[6] = i4x4_cache[7 + 8 * 1];
 }
 
-static av_always_inline void write_back_non_zero_count(H264Context *h) {
+static av_always_inline void write_back_non_zero_count(H264Context *h)
+{
 	const int mb_xy = h->mb_xy;
 	uint8_t *nnz = h->non_zero_count[mb_xy];
 	uint8_t *nnz_cache = h->non_zero_count_cache;
@@ -1045,8 +1035,11 @@ static av_always_inline void write_back_non_zero_count(H264Context *h) {
 }
 
 static av_always_inline void write_back_motion_list(H264Context *h,
-		MpegEncContext * const s, int b_stride, int b_xy, int b8_xy,
-		int mb_type, int list) {
+                                                    MpegEncContext *const s,
+                                                    int b_stride,
+                                                    int b_xy, int b8_xy,
+                                                    int mb_type, int list)
+{
 	int16_t (*mv_dst)[2] = &s->current_picture.f.motion_val[list][b_xy];
 	int16_t (*mv_src)[2] = &h->mv_cache[list][scan8[0]];
 	AV_COPY128(mv_dst + 0 * b_stride, mv_src + 8 * 0);
@@ -1054,8 +1047,8 @@ static av_always_inline void write_back_motion_list(H264Context *h,
 	AV_COPY128(mv_dst + 2 * b_stride, mv_src + 8 * 2);
 	AV_COPY128(mv_dst + 3 * b_stride, mv_src + 8 * 3);
 	if (CABAC) {
-		uint8_t (*mvd_dst)[2] = &h->mvd_table[list][
-				FMO ? 8 * h->mb_xy : h->mb2br_xy[h->mb_xy]];
+        uint8_t (*mvd_dst)[2] = &h->mvd_table[list][FMO ? 8 * h->mb_xy
+                                                        : h->mb2br_xy[h->mb_xy]];
 		uint8_t (*mvd_src)[2] = &h->mvd_cache[list][scan8[0]];
 		if (IS_SKIP(mb_type)) {
 			AV_ZERO128(mvd_dst);
@@ -1077,7 +1070,8 @@ static av_always_inline void write_back_motion_list(H264Context *h,
 	}
 }
 
-static av_always_inline void write_back_motion(H264Context *h, int mb_type) {
+static av_always_inline void write_back_motion(H264Context *h, int mb_type)
+{
 	MpegEncContext * const s = &h->s;
 	const int b_stride = h->b_stride;
 	const int b_xy = 4 * s->mb_x + 4 * s->mb_y * h->b_stride; // try mb2b(8)_xy
@@ -1086,8 +1080,8 @@ static av_always_inline void write_back_motion(H264Context *h, int mb_type) {
 	if (USES_LIST(mb_type, 0)) {
 		write_back_motion_list(h, s, b_stride, b_xy, b8_xy, mb_type, 0);
 	} else {
-		fill_rectangle(&s->current_picture.f.ref_index[0][b8_xy], 2, 2, 2,
-				(uint8_t) LIST_NOT_USED, 1);
+        fill_rectangle(&s->current_picture.f.ref_index[0][b8_xy],
+                       2, 2, 2, (uint8_t)LIST_NOT_USED, 1);
 	}
 	if (USES_LIST(mb_type, 1))
 		write_back_motion_list(h, s, b_stride, b_xy, b8_xy, mb_type, 1);
@@ -1102,22 +1096,15 @@ static av_always_inline void write_back_motion(H264Context *h, int mb_type) {
 	}
 }
 
-static av_always_inline int get_dct8x8_allowed(H264Context *h) {
+static av_always_inline int get_dct8x8_allowed(H264Context *h)
+{
 	if (h->sps.direct_8x8_inference_flag)
-		return !(AV_RN64A(h->sub_mb_type)
-				& ((MB_TYPE_16x8 | MB_TYPE_8x16 | MB_TYPE_8x8)
-						* 0x0001000100010001ULL));
+        return !(AV_RN64A(h->sub_mb_type) &
+                 ((MB_TYPE_16x8 | MB_TYPE_8x16 | MB_TYPE_8x8) *
+                  0x0001000100010001ULL));
 	else
-		return !(AV_RN64A(h->sub_mb_type)
-				& ((MB_TYPE_16x8 | MB_TYPE_8x16 | MB_TYPE_8x8 | MB_TYPE_DIRECT2)
-						* 0x0001000100010001ULL));
+        return !(AV_RN64A(h->sub_mb_type) &
+                 ((MB_TYPE_16x8 | MB_TYPE_8x16 | MB_TYPE_8x8 | MB_TYPE_DIRECT2) *
+                  0x0001000100010001ULL));
 }
-
-static const AVOption h264_options[] = { { "is_avc", "is avc", offsetof(H264Context, is_avc),
-		FF_OPT_TYPE_INT, { .dbl = 0 }, 0, 1, 0 }, { "nal_length_size", "nal_length_size",
-		offsetof(H264Context, nal_length_size), FF_OPT_TYPE_INT, { .dbl = 0 }, 0, 4, 0 }, { NULL } };
-
-static const AVClass h264_class = { "H264 Decoder", av_default_item_name, h264_options,
-		LIBAVUTIL_VERSION_INT, };
-
 #endif /* AVCODEC_H264_H */

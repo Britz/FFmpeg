@@ -1266,7 +1266,9 @@ av_cold int ff_h264_decode_init(AVCodecContext *avctx) {
 	int i, view_id;
 	// H264Context *h = avctx->priv_data;
 	// avctx->thread_count;
-	av_log(avctx, AV_LOG_INFO, "ff_h264_decode_init(AVCodecContext *avctx:%p)\n",avctx);
+	//FLOW av_log(avctx, AV_LOG_INFO, "AVCodec.init(AVCodecContext *avctx:%p)\n",avctx);
+	av_log(avctx, AV_LOG_INFO, "AVCodec.init(AVCodecContext *avctx)\n");
+
 	for(view_id = 0; view_id<MAX_VIEW_COUNT; view_id++){
 
 		MpegEncContext * const s = ff_h264_extract_Context(avctx, &h, view_id);
@@ -1377,7 +1379,9 @@ static int decode_init_thread_copy(AVCodecContext *avctx)
 {
 	// Only buffers of first context are used.
 	H264Context *h;
-	av_log(avctx, AV_LOG_INFO, "decode_init_thread_copy(AVCodecContext *avctx:%p)\n",avctx);
+	//FLOW av_log(avctx, AV_LOG_INFO, "AVCodec.init_thread_copy(AVCodecContext *avctx:%p)\n",avctx);
+	av_log(avctx, AV_LOG_INFO, "AVCodec.init_thread_copy(AVCodecContext *avctx)\n");
+
 
 	ff_h264_extract_Context(avctx, &h, 0);
 	// H264Context *h = avctx->priv_data;
@@ -1400,7 +1404,9 @@ static int decode_update_thread_context(AVCodecContext *dst, const AVCodecContex
 	H264Context *h, *h1;
 	int view_id = 0, err;
 
-	av_log(dst, AV_LOG_INFO, "decode_update_thread_context(AVCodecContext *dst:%p, const AVCodecContext *src:%p)\n",dst, src);
+	//FLOW av_log(dst, AV_LOG_INFO, "AVCodec.update_thread_context(AVCodecContext *dst:%p, const AVCodecContext *src:%p)\n",dst, src);
+	av_log(dst, AV_LOG_INFO, "AVCodec.update_thread_context(AVCodecContext *dst, const AVCodecContext *src)\n");
+
 	if (dst == src)
 		return 0;
 
@@ -2764,7 +2770,8 @@ static void flush_dpb(AVCodecContext *avctx) {
 	H264Context *h;
 	int i,j;
 
-	av_log(avctx, AV_LOG_INFO, "flush_dpb(AVCodecContext *avctx:%p)\n",avctx);
+	//FLOW av_log(avctx, AV_LOG_INFO, "AVCodec.flush(AVCodecContext *avctx:%p)\n",avctx);
+	av_log(avctx, AV_LOG_INFO, "AVCodec.flush(AVCodecContext *avctx)\n");
 
 	// H264Context *h = avctx->priv_data;
 	for(i = 0; i<MAX_VIEW_COUNT; i++){
@@ -4295,7 +4302,7 @@ static int decode_slice(struct AVCodecContext *avctx, void *arg)
                                                    : 0x7F;
 	int lf_x_start = s->mb_x;
 
-	av_log(h->s.avctx, AV_LOG_INFO, "decode_slice(AVCodecContext *avctx:%p, void *arg:%p)\n",avctx,arg);
+	//av_log(h->s.avctx, AV_LOG_INFO, "decode_slice(AVCodecContext *avctx:%p, void *arg:%p)\n",avctx,arg);
 
 	s->mb_skip_run = -1;
 
@@ -5118,7 +5125,8 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
 	}
 	DECODE_ONLY_NECESSARY_VIEWS = !! DECODE_ONLY_NECESSARY_VIEWS;
 
-	av_log(avctx, AV_LOG_INFO, "decode_frame(AVCodecContext *avctx:%p , void *data:%p , int *data_size:%p, AVPacket *avpkt:%p)\n",avctx, data, data_size, avpkt);
+	//FLOW av_log(avctx, AV_LOG_INFO, "AVCodec.decode(AVCodecContext *avctx:%p , void *data:%p , int *data_size:%p, AVPacket *avpkt:%p)\n",avctx, data, data_size, avpkt);
+	av_log(avctx, AV_LOG_INFO, "AVCodec.decode(AVCodecContext *avctx , void *data , int *data_size, AVPacket *avpkt)\n");
 
 	ff_h264_extract_Context(avctx, &h, 0);
 	h->target_voidx = TARGET_VIEW_INDEX;
@@ -5221,7 +5229,8 @@ static av_cold int h264_decode_end(AVCodecContext *avctx) {
 	// EDIT JB extract_Context
 	H264Context *h;
 	int i= 0;
-	av_log(avctx, AV_LOG_INFO, "h264_decode_end(AVCodecContext *avctx:%p)\n",avctx);
+	//FLOW av_log(avctx, AV_LOG_INFO, "AVCodec.end(AVCodecContext *avctx:%p)\n",avctx);
+	av_log(avctx, AV_LOG_INFO, "AVCodec.end(AVCodecContext *avctx)\n");
 
 
 	// H264Context *h = avctx->priv_data;
@@ -5263,7 +5272,7 @@ AVCodec ff_h264_decoder = {
 		.init = ff_h264_decode_init,
 		.close = h264_decode_end,
 		.decode = decode_frame,
-		.capabilities =/*CODEC_CAP_DRAW_HORIZ_BAND |*/CODEC_CAP_DR1 | CODEC_CAP_DELAY | CODEC_CAP_SLICE_THREADS | CODEC_CAP_FRAME_THREADS,
+		.capabilities =/*CODEC_CAP_DRAW_HORIZ_BAND |*/CODEC_CAP_DR1 | CODEC_CAP_DELAY | CODEC_CAP_SLICE_THREADS | !CODEC_CAP_FRAME_THREADS,
 		.flush = flush_dpb,
 		.long_name = NULL_IF_CONFIG_SMALL("H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10"),
 		.init_thread_copy = ONLY_IF_THREADS_ENABLED(decode_init_thread_copy),
