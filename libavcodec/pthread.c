@@ -83,7 +83,9 @@ typedef struct ThreadContext {
 } ThreadContext;
 
 /// Max number of frame buffers that can be allocated when using frame threads.
-#define MAX_BUFFERS (32+1)
+// EDIT JB Buffer size in threads have to be bigger
+#define MAX_VIEW_COUNT 8
+#define MAX_BUFFERS ((32+1)*MAX_VIEW_COUNT)
 
 /**
  * Context used by codec threads and stored in their AVCodecContext thread_opaque.
@@ -129,7 +131,8 @@ typedef struct PerThreadContext {
     /**
      * Array of progress values used by ff_thread_get_buffer().
      */
-    int     progress[MAX_BUFFERS][2];
+    // EDIT JB progress tables needes 2 fields per view
+    int     progress[MAX_BUFFERS][2*MAX_VIEW_COUNT];
     uint8_t progress_used[MAX_BUFFERS];
 
     AVFrame *requested_frame;       ///< AVFrame the codec passed to get_buffer()

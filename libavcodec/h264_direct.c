@@ -30,6 +30,7 @@
 #include "avcodec.h"
 #include "mpegvideo.h"
 #include "h264.h"
+#include "h264_mvc.h"
 #include "rectangle.h"
 #include "thread.h"
 
@@ -158,10 +159,14 @@ static void await_reference_mb_row(H264Context * const h, Picture *ref, int mb_y
 
     //FIXME it can be safe to access mb stuff
     //even if pixels aren't deblocked yet
+    if(ref->view_id != h->view_id){
+    	ff_h264_thread_await_picture(h, ref);
+	}else {
+    	ff_h264_thread_await_progress(h, ref,
+			FFMIN(16 * mb_y >> ref_field_picture, ref_height - 1),
+			ref_field_picture && ref_field);
+	}
 
-    ff_thread_await_progress(&ref->f,
-                             FFMIN(16 * mb_y >> ref_field_picture, ref_height - 1),
-                             ref_field_picture && ref_field);
 }
 
 static void pred_spatial_direct_motion(H264Context * const h, int *mb_type){

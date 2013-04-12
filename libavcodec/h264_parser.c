@@ -438,7 +438,7 @@ static int h264_parse(AVCodecParserContext *s,
 	ParseContext *pc;
 	int next;
 	//FLOW av_log(avctx, AV_LOG_INFO, "AVCodecParser.parser_parse(AVCodecParserContext *s:%p, AVCodecContext *avctx:%p,  const uint8_t **poutbuf:%p, int *poutbuf_size:%d, const uint8_t *buf:%p, int buf_size:%d)\n",s,avctx, *poutbuf, *poutbuf_size, buf, buf_size);
-	av_log(avctx, AV_LOG_INFO, "AVCodecParser.parser_parse(AVCodecParserContext *s, AVCodecContext *avctx,  const uint8_t **poutbuf, int *poutbuf_size, const uint8_t *buf, int buf_size)\n");
+	//av_log(avctx, AV_LOG_INFO, "AVCodecParser.parser_parse(AVCodecParserContext *s, AVCodecContext *avctx,  const uint8_t **poutbuf, int *poutbuf_size, const uint8_t *buf, int buf_size)\n");
 
 
 	ff_h264_extract_parser_Context(s, &h, 0);
@@ -503,7 +503,7 @@ static int h264_split(AVCodecContext *avctx,
     uint32_t state = -1;
     int has_sps= 0;
     //FLOW av_log(avctx, AV_LOG_INFO, "AVCodecParser.split(AVCodecContext *avctx:%p, const uint8_t *buf:%p, int buf_size:%d)\n",avctx, buf, buf_size);
-    av_log(avctx, AV_LOG_INFO, "AVCodecParser.split(AVCodecContext *avctx, const uint8_t *buf, int buf_size)\n");
+    //av_log(avctx, AV_LOG_INFO, "AVCodecParser.split(AVCodecContext *avctx, const uint8_t *buf, int buf_size)\n");
 
     for(i=0; i<=buf_size; i++){
         if((state&0xFFFFFF1F) == 0x107)
@@ -531,7 +531,7 @@ static void close(AVCodecParserContext *s)
 
 	const AVClass *avc = &h264_class;
 	//FLOW av_log(&avc, AV_LOG_INFO, "AVCodecParser.parser_close(AVCodecParserContext *s:%p)\n",s);
-	av_log(&avc, AV_LOG_INFO, "AVCodecParser.parser_close(AVCodecParserContext *s)\n");
+	//av_log(&avc, AV_LOG_INFO, "AVCodecParser.parser_close(AVCodecParserContext *s)\n");
 
 
 	for(view_id = 0; view_id<MAX_VIEW_COUNT; view_id++){
@@ -551,7 +551,7 @@ static int init(AVCodecParserContext *s)
 
 	const AVClass *avc = &h264_class;
 	//FLOW av_log(&avc, AV_LOG_INFO, "AVCodecParser.parser_init(AVCodecParserContext *s:%p)\n",s);
-	av_log(&avc, AV_LOG_INFO, "AVCodecParser.parser_init(AVCodecParserContext *s)\n");
+	//av_log(&avc, AV_LOG_INFO, "AVCodecParser.parser_init(AVCodecParserContext *s)\n");
 	for(view_id = 0; view_id<MAX_VIEW_COUNT; view_id++){
 		ff_h264_extract_parser_Context(s, &h, view_id);
 

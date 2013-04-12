@@ -714,7 +714,7 @@ typedef struct H264Context {
 	// refrence list
 	Picture* inter_ref_list[MAX_VIEW_COUNT]; 		///< contains the pictures with inter_view_flag
 	int inter_ref_count;    						///< number of actual inter view references
-	 
+	uint8_t default_list_done;						///< check if the default list is done.
 
 	// sub_sps_buffer
 	SPS *sub_sps_buffers[MAX_SPS_COUNT]; /* Buffer for the subset sequence parameter sets used for non base views */
@@ -765,7 +765,15 @@ typedef struct H264Context {
 	uint8_t inter_view_flag;
 	uint8_t non_idr_flag;
 
+
+	// AVOPTIONS
+	int decode_all_views;	///< decode all views or only the necessary views and skip the others
+	int target_voidx_array[MAX_VIEW_COUNT];
+	int target_voidx_count;
+	char* target_view_indices;
 	// END EDIT
+
+
 
 } H264Context;
 
@@ -892,7 +900,25 @@ int pred_weight_table(H264Context *h);
 // moved to header to have access to it in H264_parser.c 
 static const AVOption h264_options[] = { { "is_avc", "is avc", offsetof(H264Context, is_avc),
 		FF_OPT_TYPE_INT, { .dbl = 0 }, 0, 1, 0 }, { "nal_length_size", "nal_length_size",
-		offsetof(H264Context, nal_length_size), FF_OPT_TYPE_INT, { .dbl = 0 }, 0, 4, 0 }, { NULL } };
+		offsetof(H264Context, nal_length_size), FF_OPT_TYPE_INT, { .dbl = 0 }, 0, 4, 0 },
+		{"target_view_index",
+				"the indicies of the views that should be displayed / output in case of MVC video\n It should be a single number or in array of the format \"{a, b,...\"}. Number less then 0 and bigger then MAX_VIEW_COUNT are ignored",
+				offsetof(H264Context, target_view_indices),
+				FF_OPT_TYPE_STRING, { .str = "0" },
+				0,
+				0,
+				AV_OPT_FLAG_VIDEO_PARAM|AV_OPT_FLAG_DECODING_PARAM,
+				"h264_mvc"},
+		{"decode_all_views",
+				"decode all views of the MVC stream or only the necessary views to be able to decode the stream specified in target_voidx and skip the others",
+				offsetof(H264Context, decode_all_views),
+				FF_OPT_TYPE_INT,
+				{ .i64 = 0 },
+				0,
+				1,
+				AV_OPT_FLAG_VIDEO_PARAM|AV_OPT_FLAG_DECODING_PARAM,
+				"h264_mvc"},
+		{ NULL } };
 
 static const AVClass h264_class = { "H264 Decoder", av_default_item_name, h264_options,
 		LIBAVUTIL_VERSION_INT, };

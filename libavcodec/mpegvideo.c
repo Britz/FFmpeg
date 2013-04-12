@@ -718,12 +718,12 @@ int ff_mpeg_update_thread_context(AVCodecContext *dst,
 	if (dst == src)
 		return 0;
 
-	return ff_mpeg_update_thread_context_intern(dst, dst->priv_data, src->priv_data);
+	return ff_mpeg_update_thread_context_intern(dst, dst->priv_data, src->priv_data, 0);
 }
 
 
 int ff_mpeg_update_thread_context_intern(AVCodecContext *avctx, MpegEncContext *dst,
-	                                  const MpegEncContext *src)
+	                                  const MpegEncContext *src, int voidx)
 	{
 	MpegEncContext *s = dst, *s1 = src;
     // FIXME can parameters change on I-frames?
@@ -736,8 +736,10 @@ int ff_mpeg_update_thread_context_intern(AVCodecContext *avctx, MpegEncContext *
         s->bitstream_buffer_size = s->allocated_bitstream_buffer_size = 0;
 
         if (s1->context_initialized){
-        	s->picture_range_start  += FFMAX(MAX_PICTURE_COUNT, s->max_picture_count);
-            s->picture_range_end    += FFMAX(MAX_PICTURE_COUNT, s->max_picture_count);
+        	//if(voidx == 0){
+        		s->picture_range_start  += FFMAX(MAX_PICTURE_COUNT, s->max_picture_count);
+        		s->picture_range_end    += FFMAX(MAX_PICTURE_COUNT, s->max_picture_count);
+        	//}
             ff_MPV_common_init(s);
         }
     }
@@ -751,12 +753,25 @@ int ff_mpeg_update_thread_context_intern(AVCodecContext *avctx, MpegEncContext *
     s->picture_number       = s1->picture_number;
     s->input_picture_number = s1->input_picture_number;
 
+
     memcpy(s->picture, s1->picture, s1->picture_count * sizeof(Picture));
+
+
     memcpy(&s->last_picture, &s1->last_picture,
            (char *) &s1->last_picture_ptr - (char *) &s1->last_picture);
 
     s->last_picture_ptr    = REBASE_PICTURE(s1->last_picture_ptr,    s, s1);
-    s->current_picture_ptr = REBASE_PICTURE(s1->current_picture_ptr, s, s1);
+    //s->current_picture_ptr = REBASE_PICTURE(s1->current_picture_ptr, s, s1);
+    if(s1->current_picture_ptr){
+    	if(s1->current_picture_ptr >= s1->picture &&
+    	   s1->current_picture_ptr < s1->picture+s1->picture_count){
+              s->current_picture_ptr = &s->picture[s1->current_picture_ptr - s1->picture];
+    	}else{
+    	 	  s->current_picture_ptr = s1->current_picture_ptr - (Picture*)s1 + (Picture*)s;
+    	}
+    }else{
+    	s->current_picture_ptr = NULL;
+    }
     s->next_picture_ptr    = REBASE_PICTURE(s1->next_picture_ptr,    s, s1);
 
     // Error/bug resilience

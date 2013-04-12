@@ -165,6 +165,7 @@ int ff_h264_fill_default_ref_list(H264Context *h){
         }
     }
 #endif
+    h->default_list_done = 1;
     return 0;
 }
 
@@ -248,8 +249,12 @@ int ff_h264_decode_ref_pic_list_reordering(H264Context *h){
 	                              )
 	                                break;
 	                        }
-	                        if(i>=0)
+	                        if(i>=0){
 	                            ref->pic_id= pred;
+	                        }
+	                        else{
+	                        	i = -1;
+	                        }
 	                    }else{
 	                        int long_idx;
 	                        pic_id= get_ue_golomb(&s->gb); //long_term_pic_idx
@@ -297,9 +302,9 @@ int ff_h264_decode_ref_pic_list_reordering(H264Context *h){
 	    for(list=0; list<h->list_count; list++){
 	        for(index= 0; index < h->ref_count[list]; index++){
 	            if (!h->ref_list[list][index].f.data[0]) {
-	                av_log(h->s.avctx, AV_LOG_ERROR, "Missing reference picture, default is %d\n", h->default_ref_list[list][0].poc);
-	                if (h->default_ref_list[list][0].f.data[0])
-	                    h->ref_list[list][index]= h->default_ref_list[list][0];
+	                av_log(h->s.avctx, AV_LOG_ERROR, "Missing reference picture, default is %d\n", h->default_ref_list[list][index].poc);
+	                if (h->default_ref_list[list][index].f.data[0])
+	                    h->ref_list[list][index]= h->default_ref_list[list][index];
 	                else
 	                   return -1;
 	            }
@@ -626,35 +631,49 @@ int ff_h264_execute_ref_pic_marking(H264Context *h, MMCO *mmco, int mmco_count){
                                              "(first field is long term)\n");
             err = AVERROR_INVALIDDATA;
         } else {
-        	pic = remove_short(h, s->current_picture_ptr->frame_num, 0);
+
+			pic = remove_short(h, s->current_picture_ptr->frame_num, 0);
 			if(pic){
 				av_log(h->s.avctx, AV_LOG_ERROR, "illegal short term buffer state detected\n");
 				err = AVERROR_INVALIDDATA;
 			}
 
-            if(h->short_ref_count)
-                memmove(&h->short_ref[1], &h->short_ref[0], h->short_ref_count*sizeof(Picture*));
+			if(h->short_ref_count)
+				memmove(&h->short_ref[1], &h->short_ref[0], h->short_ref_count*sizeof(Picture*));
 
 
-            h->short_ref[0] = s->current_picture_ptr;
-            h->short_ref_count++;
-            s->current_picture_ptr->f.reference |= s->picture_structure;
+			h->short_ref[0] = s->current_picture_ptr;
+			h->short_ref_count++;
+			s->current_picture_ptr->f.reference |= s->picture_structure;
 
             // EDIT JB short and inter_view references are set here!
             if(h->inter_view_flag){
-            	if(h_base->inter_ref_list[h->view_id]){
-					h_base->inter_ref_list[h->view_id]->f.reference &= ~INTER_PIC_REF;
-				}else{
+            	Picture* ref  = s->current_picture_ptr;
+            	int view_id  = ref->view_id;
+
+            	if(h->view_id != view_id){
+            		av_log(h->s.avctx, AV_LOG_ERROR, "Wrong view_id during ref_pic_marking, h->view_id is %d and  s->current_picture_ptr->view_id is %d \n",h->view_id, view_id);
+            	}
+            	if(h_base->inter_ref_list[view_id]){
+            		Picture* old_ref  = h_base->inter_ref_list[view_id];
+            		if(old_ref->view_id != view_id){
+						av_log(h->s.avctx, AV_LOG_ERROR, "Wrong view_id during override in ref_pic_marking, old_ref->view_id is %d and ref->view_id is %d \n",old_ref->view_id, view_id);
+					}
+					old_ref->f.reference &= ~INTER_PIC_REF;
+					av_log(h->s.avctx, AV_LOG_INFO, "inter_ref_list[%d] override picture (%p, poc %d) with picture(%p ,poc %d)  \n", view_id, old_ref, old_ref->poc, ref, ref->poc);
+            	}else{
 					h_base->inter_ref_count++;
 				}
-				h_base->inter_ref_list[h->view_id] = s->current_picture_ptr;
+				h_base->inter_ref_list[view_id] = s->current_picture_ptr;
 
-				s->current_picture_ptr->view_id = h->view_id;
+				//s->current_picture_ptr->view_id = h->view_id;
 				s->current_picture_ptr->f.reference |= INTER_PIC_REF;
 				s->current_picture_ptr->inter_ref = 1;
+
 			}else{
 				s->current_picture_ptr->inter_ref = 0;
 			}
+
             // END EDIT
         }
     }

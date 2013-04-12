@@ -734,7 +734,7 @@ typedef struct MpegEncContext {
 // @author: Jochen Britz
 
 int ff_mpeg_update_thread_context_intern(AVCodecContext *avctx, MpegEncContext *s,
-	                                  const MpegEncContext *s1);
+	                                  const MpegEncContext *s1, int voidx);
 //END EDIT
 
 
