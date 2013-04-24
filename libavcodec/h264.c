@@ -48,6 +48,7 @@
 
 // #undef NDEBUG
 #include <assert.h>
+#include <time.h>
 
 const uint16_t ff_h264_mb_sizes[4] = { 256, 384, 512, 768 };
 
@@ -3148,8 +3149,8 @@ static int decode_slice_header(H264Context *h, H264Context *h0)
 	// JB Sub SPS handling and activation
 	// @author: Jochen Britz
 	// activate SPS and PPS in H264Context
-	get_PPS(h0, h, pps_id, 1);
-	get_SPS(h0, h, h->pps.sps_id, 1);
+	get_PPS(h, h0, pps_id, 1);
+	get_SPS(h, h0, h->pps.sps_id, 1);
 	// set previous parsed values
 	h->sps.pps_id = pps_id;
 	h->sps.first_mb_in_slice = first_mb_in_slice;
@@ -3315,8 +3316,8 @@ static int decode_slice_header(H264Context *h, H264Context *h0)
 			return -1;
 		}
 
-		// EDIT
-		if( (h0->voidx != 0) 	// check if not in base view
+		// EDIT JB link DPB to main context
+		if( (h0->voidx != 0 && LINK_DPB) 	// check if not in base view
 			&& (s->picture != h_base->s.picture) ){ // check if not already done
 
 			// free dpb and link it to the base view
@@ -4845,7 +4846,7 @@ again:
 				break;
 			case NAL_SPS_EXT:
 				init_get_bits(&s->gb, ptr, bit_length);
-				ff_h264_decode_sps_ext(h, &h->sps);
+				ff_h264_decode_sps_ext(hx, h);
 				break;
 				// END EDIT
 
@@ -5049,6 +5050,13 @@ static int decode_frame_single_view(H264Context *h, void *data, int *data_size, 
 	Picture *out;
 	int i, out_idx;
 
+	clock_t start = clock();
+	/*Do something*/
+	clock_t end;
+	double seconds;
+
+	av_log(h->s.avctx, AV_LOG_INFO, "Start decoding of NAL unit type %2d.\n", h->nal_unit_type);
+
 	/* end of stream, output what is still in the buffers */
 	if (buf_size == 0) {
 
@@ -5081,7 +5089,7 @@ static int decode_frame_single_view(H264Context *h, void *data, int *data_size, 
 	buf_index = decode_nal_units(h, buf, buf_size);
 
 	if(h->voidx != h->mvc_context[0]->voidx_list[h->view_id]){
-		av_log(h->s.avctx, AV_LOG_INFO, "voidx missmatch. Should be %d but is %d .\n", h->mvc_context[0]->voidx_list[h->view_id] , h->voidx );
+		av_log(h->s.avctx, AV_LOG_INFO, "voidx missmatch. Should be %d but is %d .\n", h->mvc_context[0]->voidx_list[h->view_id] , h->voidx);
 	}
 
 	if (buf_index < 0) return -1;
@@ -5116,7 +5124,11 @@ static int decode_frame_single_view(H264Context *h, void *data, int *data_size, 
 
 
 	ff_h264_thread_report_Picture(h);
-	av_log(h->s.avctx, AV_LOG_INFO, "NAL unit type %2d decoded: View %d , Poc %5d, Frame %3d, Temporal ID %3d, %s picture .\n", h->nal_unit_type, h->view_id, h->s.current_picture_ptr->poc, h->frame_num, h->temporal_id ,h->anchor_pic_flag?"Anchor":"Non-Anchor" );
+
+	end = clock();
+	seconds = (double)(end - start) / CLOCKS_PER_SEC;
+	//av_log(h->s.avctx, AV_LOG_INFO, "Finished decoding of NAL unit type %2d: View %d , Poc %5d, Frame %3d, Temporal ID %3d, %s picture.     Takes %f seconds.\n", h->nal_unit_type, h->view_id, h->s.current_picture_ptr->poc, h->frame_num, h->temporal_id ,h->anchor_pic_flag?"Anchor":"Non-Anchor", seconds);
+	av_log(h->s.avctx, AV_LOG_INFO, "Finished decoding of NAL unit type %d:\n		View %d\n		Poc %d\n		Frame %d\n		Temporal ID %d\n		%s picture\n		%fs duration\n", h->nal_unit_type, h->view_id, h->s.current_picture_ptr->poc, h->frame_num, h->temporal_id ,h->anchor_pic_flag?"Anchor":"Non-Anchor", seconds);
 
 	return get_consumed_bytes(s, buf_index, buf_size);
 }
@@ -5128,7 +5140,8 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
 	AVFrame *pict = data;
 	H264Context *h, *h_base;
 	int i, buf_idx = 0;
-
+	double start = clock();
+	double end, seconds;
 	int frame_end, consumed = 0;
 	int out_idx = buf_size;
 
@@ -5231,6 +5244,9 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
 		*data_size = size;
 	}
 
+	end = clock();
+	seconds = (double)(end - start) / CLOCKS_PER_SEC;
+	av_log(h->s.avctx, AV_LOG_INFO, "finished_decode_frame frame %d  duration %f\n", h->frame_num, seconds);
 	//ff_thread_finish_setup(avctx); // could be twice
 
 	return out_idx;

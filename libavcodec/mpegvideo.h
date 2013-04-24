@@ -41,6 +41,10 @@
 
 #include "libavutil/opt.h"
 
+// EDIT JB include MVC configuration
+#include "h264_mvc_config.h"
+// END  EDIT
+
 #define FRAME_SKIPPED 100 ///< return value for header parsers if frame is not coded
 
 enum OutputFormat {
@@ -52,8 +56,6 @@ enum OutputFormat {
 };
 
 // EDIT JB max view count
-// should be 1024 but for now 8 is enough
-#define MAX_VIEW_COUNT         8
 #define INTERNAL_BUFFER_SIZE  ((32+1)*(MAX_VIEW_COUNT-1))
 // END  EDIT
 

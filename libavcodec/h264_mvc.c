@@ -196,7 +196,7 @@ int save_SPS(H264Context *h, SPS* sps, uint8_t activate_it){
 	return ret;
 }
 
-SPS* get_SPS(H264Context *h0, H264Context *h, uint sps_id, uint8_t activate_it){
+SPS* get_SPS(H264Context *h, H264Context *h0, uint sps_id, uint8_t activate_it){
 	H264Context *h_base = h0->mvc_context[0]?h->mvc_context[0]:h;
 	SPS *sps = 0;
 	if (h->nal_unit_type == NAL_EXT_SLICE || h->nal_unit_type == NAL_SUB_SPS  ) { // MVC slice -> use sub_sps_buffer
@@ -261,7 +261,7 @@ SPS* get_SPS(H264Context *h0, H264Context *h, uint sps_id, uint8_t activate_it){
 	return sps;
 }
 
-PPS* get_PPS(H264Context *h0, H264Context *h, uint pps_id, uint8_t activate_it){
+PPS* get_PPS(H264Context *h, H264Context *h0, uint pps_id, uint8_t activate_it){
 	H264Context *h_base = h0->mvc_context[0]?h->mvc_context[0]:h;
 	PPS *pps = 0;
 
@@ -450,9 +450,10 @@ int ff_h264_build_default_inter_ref_list(H264Context* h, Picture *ref_list, int 
 }
 
 /** 7.3.2.1.2 */
-void ff_h264_decode_sps_ext(H264Context *h, SPS *sps) {
+void ff_h264_decode_sps_ext(H264Context *h, H264Context *h0) {
 	MpegEncContext * const s = &h->s;
-	sps->seq_parameter_set_id = get_se_golomb(&s->gb);
+	int sps_id = get_se_golomb(&s->gb);
+	SPS *sps = get_SPS(h, h0, sps_id, 0);
 	sps->aux_format_idc = get_se_golomb(&s->gb);
 	if (sps->aux_format_idc != 0) {
 		sps->bit_depth_aux_minus8 = get_se_golomb(&s->gb);
@@ -1728,7 +1729,7 @@ void ff_h264_init_picture_count(H264Context *h, MpegEncContext *s){
 	H264Context *h_base = h->mvc_context[0]?h->mvc_context[0]:h;
 	int i,n;
 
-	n=2;
+	n=4;
 
 	if(h->is_mvc && !s->mvc_dbp_initialized) {
 		SPS* sps = &h->sps;
@@ -1741,8 +1742,9 @@ void ff_h264_init_picture_count(H264Context *h, MpegEncContext *s){
 			}
 		}
 
-		s->max_picture_count = FFMAX(MAX_PICTURE_COUNT,n*MAX_PICTURE_COUNT*ceil(log2(sps->num_views_minus1 + 1)));
+		//s->max_picture_count = MAX_PICTURE_COUNT*FFMAX(1,n*ceil(log2(sps->num_views_minus1 + 1)));
 		//s->max_picture_count = MAX_PICTURE_COUNT;
+		s->max_picture_count = MAX_PICTURE_COUNT*MAX_VIEW_COUNT;
 		if(s->picture_range_end - s->picture_range_start < s->max_picture_count){
 			s->picture_range_start = (s->picture_range_start/MAX_PICTURE_COUNT)*s->max_picture_count;
 			s->picture_range_end = (s->picture_range_end/MAX_PICTURE_COUNT)*s->max_picture_count;

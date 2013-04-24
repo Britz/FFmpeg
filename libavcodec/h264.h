@@ -102,10 +102,6 @@
  * is held for delayed output.
  */
 #define DELAYED_PIC_REF 4
-// EDIT JB reference value for inter view references
-#define INTER_PIC_REF 8
-
-// END EDIT
 
 #define QP_MAX_NUM (51 + 4*6)           // The maximum supported qp
 /* NAL unit types */

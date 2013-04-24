@@ -660,6 +660,7 @@ int ff_h264_execute_ref_pic_marking(H264Context *h, MMCO *mmco, int mmco_count){
 						av_log(h->s.avctx, AV_LOG_ERROR, "Wrong view_id during override in ref_pic_marking, old_ref->view_id is %d and ref->view_id is %d \n",old_ref->view_id, view_id);
 					}
 					old_ref->f.reference &= ~INTER_PIC_REF;
+					//unreference_pic(h, old_ref, 0);
 					av_log(h->s.avctx, AV_LOG_INFO, "inter_ref_list[%d] override picture (%p, poc %d) with picture(%p ,poc %d)  \n", view_id, old_ref, old_ref->poc, ref, ref->poc);
             	}else{
 					h_base->inter_ref_count++;

@@ -30,6 +30,9 @@
  */
 
 #include "config.h"
+// EDIT JB include MVC configuration
+#include "h264_mvc_config.h"
+// END  EDIT
 
 #if HAVE_SCHED_GETAFFINITY
 #define _GNU_SOURCE
@@ -84,7 +87,6 @@ typedef struct ThreadContext {
 
 /// Max number of frame buffers that can be allocated when using frame threads.
 // EDIT JB Buffer size in threads have to be bigger
-#define MAX_VIEW_COUNT 8
 #define MAX_BUFFERS ((32+1)*MAX_VIEW_COUNT)
 
 /**

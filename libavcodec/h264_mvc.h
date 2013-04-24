@@ -84,7 +84,7 @@ int save_SPS(H264Context *h, SPS* sps, uint8_t activate_it);
  *	@param sps_id	id of the SPS, which should be activated.
  *	@return SPS*    \li{Success: the pointer to the activated SPS} \li{Error: 0}
  */
-SPS* get_SPS(H264Context *h0, H264Context *h, uint sps_id, uint8_t activate_it);
+SPS* get_SPS(H264Context *h, H264Context *h0, uint sps_id, uint8_t activate_it);
 
 /** Adds the PPS to the buffer of each MVC context.
  *
@@ -105,7 +105,7 @@ int save_PPS(H264Context *h, PPS* pps, uint pps_id, uint8_t activate_it);
  *	@param pps_id	id of the PPS. (necessary, since PPS does not store their own id)
  *	@return PPS*    \li{Success: the pointer to the activated PPS} \li{Error: 0}
  */
-PPS* get_PPS(H264Context *h0, H264Context *h, uint pps_id, uint8_t activate_it);
+PPS* get_PPS(H264Context *h, H264Context *h0, uint pps_id, uint8_t activate_it);
 
 // ==================================================================== //
 //  							CLAUSES									//
@@ -116,7 +116,7 @@ PPS* get_PPS(H264Context *h0, H264Context *h, uint pps_id, uint8_t activate_it);
  *
  * 	seq_parameter_set_extension_rbsp()
  */
-void ff_h264_decode_sps_ext(H264Context *h, SPS *sps);
+void ff_h264_decode_sps_ext(H264Context *h, H264Context *h0);
 
 /** 7.3.2.1.3
  * 	Subset sequence parameter set RBSP syntax
