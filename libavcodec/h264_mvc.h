@@ -15,6 +15,8 @@
 
 #include "h264.h"
 
+
+// SVC slice types
 enum SVCAVPictureType {
 	AV_PICTURE_TYPE_EI = AV_PICTURE_TYPE_I,
 	AV_PICTURE_TYPE_EP = AV_PICTURE_TYPE_P,
@@ -25,85 +27,166 @@ enum SVCAVPictureType {
 //  							HELPER									//
 // ==================================================================== //
 
+
+/**
+ * A wrapper function for @see ff_thread_await_progress() for easier modification to adapt for MVC.
+ *
+ * @param[in] h The current main H264Context (typically, h0 or h).
+ * @param[in] ref_pic The reference picture to wait for.
+ * @param[in] n The number the @see ff_h264_thread_report_progress() should reach to stop waiting (typically, the current row).
+ * @param[in] field The field to wait for (either 0 or 1).
+ */
 void ff_h264_thread_await_progress(H264Context *h, Picture *ref_pic, int n, int field);
-void ff_h264_thread_await_picture(H264Context *h, Picture *ref_pic);
+
+/**
+ * A wrapper function for @see ff_thread_report_progress() for easier modification to adapt for MVC.
+ *
+ * @param[in] h The current main H264Context (typically, h0 or h).
+ * @param[in] ref_pic The reference picture to wait for.
+ * @param[in] n The number to report (typically, the current row).
+ * @param[in] field The field to report in (either 0 or 1).
+ */
 void ff_h264_thread_report_progress(H264Context *h, Picture *ref_pic, int n, int field);
+
+
+/**
+ * A function similar to @see ff_h264_thread_await_progress(), but waits for pictures from other views.
+ * This is done through a extension of the field indexing to view indexing.
+ *
+ * @param[in] h The current main H264Context (typically, h0 or h).
+ * @param[in] ref_pic The reference picture to wait for.
+ */
+void ff_h264_thread_await_picture(H264Context *h, Picture *ref_pic);
+
+
+/**
+ * A function similar to @see ff_h264_thread_report_progress(), but reports the
+ * current pictures (@see h->s.current_picture_ptr) from the current view (@see h->s.current_picture_ptr->view_id).
+ * This is done through a extension of the field indexing to view indexing.
+ *
+ * @param[in] h The current main H264Context (typically, h0 or h).
+ */
 void ff_h264_thread_report_Picture(H264Context *h);
 
+
+/**
+ * Parses the option string stored in @see h->target_view_indices;
+ * These option can be set as command line parameter.
+ *
+ *
+ * @param[in] h The context, which contains the option (typically, the main context of the base view).
+ */
 void parse_option_string(H264Context* h);
 
-/** MIN
- * 	Returns the minimum of two integer values
- */
-int min(int a, int b);
-
-/** MAX
- * 	Returns the maximum of two integer values
- */
-int max(int a, int b);
-
-/** EXTRACT
- * 	assigns H264Context* with view order index vOIdx to *h and returns MpegEncContext*.
- *  Normal use case is:
+/**
+ * Assigns H264Context* with view order index vOIdx to *h and returns MpegEncContext*.
+ * Normal use case is:
  *			MpegEncContext * const s = ff_h264_extract_Context(avctx, &h, i);
  *
- *	vOIdx has to be in the range 0..MAX_VIEW_COUNT otherwise vOIdx = 0 is taken.
+ * vOIdx has to be in the range 0..MAX_VIEW_COUNT otherwise vOIdx = 0 is taken.
  *
- *  return MpegEncContext
+ * @param[in] avctx The AVCodecContext, which contains the H264Context in the priv_data field.
+ * @param[out] h A poniter to the H264Context, corresponding to the vOIDx.
+ * @param[in] voidx The View Order InDeX of the requested view (and corresponding H264Context).
+ * @return MpegEncContext A pointer to the first field of the corresponding H264Context.
  */
 MpegEncContext* ff_h264_extract_Context(const AVCodecContext * avctx, H264Context** h, int voidx);
-MpegEncContext* ff_h264_extract_parser_Context(const AVCodecParserContext* avctx, H264Context** h,
-		int voidx);
+
+/**
+ * Assigns H264Context* with view order index vOIdx to *h and returns MpegEncContext*.
+ * Similar to @see ff_h264_extract_Context() but for the parser.
+ * Normal use case is:
+ *			MpegEncContext * const s = ff_h264_extract_parser_Context(avctx, &h, i);
+ *
+ * vOIdx has to be in the range 0..MAX_VIEW_COUNT otherwise vOIdx = 0 is taken.
+ *
+ * @param[in] avctx The AVCodecParserContext, which contains the H264Context in the priv_data field.
+ * @param[out] h A poniter to the H264Context, corresponding to the vOIDx.
+ * @param[in] voidx The View Order InDeX of the requested view (and corresponding H264Context).
+ * @return MpegEncContext A pointer to the first field of the corresponding H264Context.
+ */
+MpegEncContext* ff_h264_extract_parser_Context(const AVCodecParserContext* avctx, H264Context** h, int voidx);
+
+
+/**
+ * Returns a pointer to the MpegEncContext of the base-view.
+ *
+ * @param h The current main H264Context (typically, h0 or h).
+ * @return A pointer to the MpegEncContext of the base-view.
+ */
 MpegEncContext* ff_h264_get_MpegEncContext(H264Context *h);
+
+/**
+ * Similar to the @see ff_h264_find_frame_end(). Searches for the end of a frame.
+ * Takes MVC frames also into account.
+ *
+ * @param h The H264Context to work on.
+ * @param buf	The buffer that stores the bit-stream
+ * @param buf_size The size of the above buffer.
+ * @return The position of the end of the frame in term of buffer index.
+ */
 int ff_h264_find_mvc_frame_end(H264Context *h, const uint8_t *buf, int buf_size);
-/** INIT H264Context
- * 	Does the same initialization then extract_H264Context()
- * 	without extracting H264Context out of AVCodecContext.
+
+
+/**
+ * Initialize MVC-specific content in the H264Context.
+ * At the moment is does nothing but is called in every initialization step,
+ * to be able to quickly initialize new introduced fields.
+ *
+ * Is also used in  @see extract_H264Context().
+ *
+ * @param h The H264Context to initialize.
  */
 void init_H264Context(H264Context *h);
 
-/** Adds the SPS to the buffer of each MVC context.
+/**
+ * If a SPS with same id exists, the old SPS is deleted and replaced.
+ * Depending on NAL unit type (NAL_SUB_SPS, NAL_SPS, NAL_SPS_EXT)
+ * the parameter set is put to @see sub_sps_buffer or @see sps_buffer.
  *
- * 	If a SPS with same id exit, the old SPS is deleted and replaced.
- * 	Depending on NAL unit type (NAL_SUB_SPS, NAL_SPS, NAL_SPS_EXT)
- * 	the parameter set is put to sub_sps-buffer or sps_buffer.
+ * If activate_it is set to 1, the SPS (or Subset SPS) is activated.
  *
- * 	If the SPS is no sub SPS, it is activated.
- *
- *	@param h	pointer to the H264Context. WARNING: this context have to be a main and not a threaded context!
- *	@param sps	pointer to the SPS, which should be stored in buffer.
- *	@return  \li{Override: 1} \li{Success: 0} \li{Error: -1}
+ * @param h A pointer to the h264Context to put (and activate) the SPS. WARNING: this context have to be a main and not a threaded context!
+ * @param sps A pointer to the SPS, which should be stored in buffer.
+ * @param activate_it If set to 1, h->sps is overwritten by the given sps.
+ * @return \li{Success, but existing SPS is overwritten: 1} \li{Success: 0} \li{Error: -1}
  */
 int save_SPS(H264Context *h, SPS* sps, uint8_t activate_it);
 
-/** ACTIVATE SPS
- * 	Activates the SPS.
- * 	Depending on the current NAL unit type, the SPS is taken from the sps_buffer or the sub_sps_buffer.
+/**
+ * Depending on the current NAL unit type, the SPS is taken from the sps_buffer or the sub_sps_buffer.
+ * If activate_it is set to 1, the SPS (or Subset SPS) is activated.
  *
- * 	@param h		pointer to the H264Context. !WARNING: this context have to be a main and not a threaded context!
- *	@param sps_id	id of the SPS, which should be activated.
- *	@return SPS*    \li{Success: the pointer to the activated SPS} \li{Error: 0}
+ * @param h A pointer to the H264Context.
+ * @param h0 A pointer to the main h264Context (in case of threading, typically h0. Otherwise put h to both).
+ * @param sps_id The id of the required SPS or Subset SPS
+ * @param activate_it If set to 1, h->sps is overwritten by the given sps.
+ * @return \li{Success: the pointer to the activated SPS} \li{Error: 0}
  */
 SPS* get_SPS(H264Context *h, H264Context *h0, uint sps_id, uint8_t activate_it);
 
-/** Adds the PPS to the buffer of each MVC context.
- *
+/**
+ *	Adds the PPS to the buffer of each MVC context.
  * 	If a PPS with same id exit, the old PPS is deleted and replaced.
+ * 	If activate_it is set to 1, the PPS is activated.
  *
- *	@param h		pointer to the H264Context. !WARNING: this context have to be a main and not a threaded context!
- *	@param pps		pointer to the PPS, which should be stored in buffer.
- *	@param pps_id	id of the PPS. (necessary, since PPS does not store their own id)
- *	@return  		\li{Override: 1} \li{Success: 0} \li{Error: -1}
+ * @param h A pointer to the H264Context. !WARNING: this context have to be a main and not a threaded context!
+ * @param pps A pointer to the PPS, which should be stored in buffer.
+ * @param pps_id The id of the PPS. Required, since the pps has no field for its id.
+ * @param activate_it If set to 1, h->pps is overwritten by the given pps.
+ * @return \li{Override: 1} \li{Success: 0} \li{Error: -1}
  */
 int save_PPS(H264Context *h, PPS* pps, uint pps_id, uint8_t activate_it);
 
-/** ACTIVATE PPS
- * 	Activates the PPS from pps_buffer and the SPS with id = pps.sps_id.
- * 	For SPS activation @see activate_SPS() is used.
+/**
+ * Activates the PPS from pps_buffer and the SPS with id = pps.sps_id.
+ * For SPS activation @see activate_SPS() is used.
  *
- * 	@param h		pointer to the H264Context. !WARNING: this context have to be a main and not a threaded context!
- *	@param pps_id	id of the PPS. (necessary, since PPS does not store their own id)
- *	@return PPS*    \li{Success: the pointer to the activated PPS} \li{Error: 0}
+ * @param h A pointer to the H264Context.
+ * @param h0 A pointer to the main h264Context (in case of threading, typically h0. Otherwise put h to both).
+ * @param pps_id The id of the required PPS.
+ * @param activate_it
+ * @return PPS*  \li{Success: the pointer to the activated PPS} \li{Error: 0}
  */
 PPS* get_PPS(H264Context *h, H264Context *h0, uint pps_id, uint8_t activate_it);
 

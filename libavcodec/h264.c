@@ -483,8 +483,7 @@ static void await_references(H264Context *h)
 
 // EDIT JB thread_await for multi_threading
 void ff_h264_thread_await_progress(H264Context *h, Picture *ref_pic, int n, int field){
-	//H264Context* h_base = h->mvc_context[0]?h->mvc_context[0]:h;
-	//int ref_field = (!!field) + (h_base->voidx_list[h->view_id] * 2); // field should be either 0 or 1
+
 	ff_thread_await_progress(&ref_pic->f, n, field);
 }
 
@@ -495,8 +494,7 @@ void ff_h264_thread_await_picture(H264Context *h, Picture *ref_pic){
 }
 
 void ff_h264_thread_report_progress(H264Context *h, Picture *ref_pic, int n, int field){
-	//H264Context* h_base = h->mvc_context[0]?h->mvc_context[0]:h;
-	//int ref_field = (!!field) + (h_base->voidx_list[h->view_id] * 2); // field should be either 0 or 1
+
 	ff_thread_report_progress(&ref_pic->f, n, field);
 }
 

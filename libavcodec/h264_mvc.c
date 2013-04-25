@@ -82,15 +82,6 @@ void parse_option_string(H264Context* h){
 		 av_free(no_ws);
 }
 
-/** MIN */
-int min(int a, int b) {
-	return (a < b) ? a : b;
-}
-
-/** MAX */
-int max(int a, int b) {
-	return (a > b) ? a : b;
-}
 
 MpegEncContext* ff_h264_extract_Context(const AVCodecContext * avctx, H264Context** h, int voidx){
 	H264Context *h_mvc = avctx->priv_data;
@@ -1432,7 +1423,7 @@ int ff_h264_mvc_reorder_ref_pic_list(H264Context *h, SPS* sps){
 							view_ref_list = sps->non_anchor_ref_lX[list][currVOIdx];
 						}
 						if((((int) abs_diff_view_idx) - 1) < 0
-						   || (abs_diff_view_idx - 1) > max(0,maxViewIdx)){
+						   || (abs_diff_view_idx - 1) > FFMAX(0,maxViewIdx)){
 							av_log(h->s.avctx, AV_LOG_ERROR,"abs_diff_view_idx_minus1 exceeds range\n");
 							return -1;
 						}
